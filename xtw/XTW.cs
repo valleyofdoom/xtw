@@ -160,7 +160,7 @@ namespace xtw {
                 Console.WriteLine(GetTitle($"{shortInterruptType} Module Count by CPU:"));
 
                 // print table headings
-                Console.Write($"{"Module",-20}");
+                Console.Write($"{"Module",-22}");
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
                     Console.Write($"CPU {processor,-8}");
                 }
@@ -171,7 +171,7 @@ namespace xtw {
 
                     var moduleTotal = 0;
 
-                    Console.Write($"{module,-20}");
+                    Console.Write($"{module,-22}");
                     foreach (var processor in moduleData.CountByProcessor.Keys) {
                         var count = moduleData.CountByProcessor[processor];
                         Console.Write($"{count,-12}");
@@ -185,7 +185,7 @@ namespace xtw {
 
                 var systemTotal = 0;
 
-                Console.Write($"{"Total",-20}");
+                Console.Write($"{"Total",-22}");
                 foreach (var count in systemData.CountByProcessor.Values) {
                     Console.Write($"{count,-12}");
                     systemTotal += count;
@@ -196,7 +196,7 @@ namespace xtw {
                 Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Module Elapsed Times (usecs):"));
 
                 // print table headings
-                Console.Write($"{"Module",-20}");
+                Console.Write($"{"Module",-22}");
                 foreach (var tableHeading in tableHeadings) {
                     Console.Write($"{tableHeading,-12}");
                 }
@@ -210,7 +210,7 @@ namespace xtw {
 
                     var metrics = new ComputeMetrics(moduleData.RawDataset);
 
-                    Console.WriteLine($"{module,-20:F2}{metrics.Maximum(),-12:F2}{metrics.Average(),-12:F2}{metrics.Minimum(),-12:F2}{metrics.StandardDeviation(),-12:F2}{metrics.Percentile(99),-12:F2}{metrics.Percentile(99.9),-12:F2}");
+                    Console.WriteLine($"{module,-22:F2}{metrics.Maximum(),-12:F2}{metrics.Average(),-12:F2}{metrics.Minimum(),-12:F2}{metrics.StandardDeviation(),-12:F2}{metrics.Percentile(99),-12:F2}{metrics.Percentile(99.9),-12:F2}");
                 }
 
                 // make system elapsed times table
