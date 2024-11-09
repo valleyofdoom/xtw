@@ -116,11 +116,11 @@ namespace xtw {
             };
 
             // get result of selected events
-            if (!pendingInterruptHandlingData.HasResult) {
-                log.Error("no result for UseInterruptHandlingData");
+            var interruptHandlingData = pendingInterruptHandlingData.Result;
+            if (interruptHandlingData.Activity.Count == 0) {
+                log.Error("no interrupt handling data in provided trace");
                 return 1;
             }
-            var interruptHandlingData = pendingInterruptHandlingData.Result;
 
             foreach (var activity in interruptHandlingData.Activity) {
                 var activityEvent = activity.Interval;
