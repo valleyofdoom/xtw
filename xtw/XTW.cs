@@ -66,6 +66,7 @@ namespace xtw {
             var traceProcessor = TraceProcessor.Create(args.EtlFile);
 
             // select events
+            var traceMetadata = traceProcessor.UseMetadata();
             var pendingInterruptHandlingData = traceProcessor.UseInterruptHandlingData();
 
             // setup callback for progress tracking
@@ -130,9 +131,8 @@ namespace xtw {
                 if (!modulesData[activityEvent.Type].ContainsKey(module)) {
                     modulesData[activityEvent.Type].Add(module, new Data());
 
-                    // TODO: get total CPUs from trace, not environment
                     // populate processors for data block
-                    for (var processor = 0; processor < Environment.ProcessorCount; processor++) {
+                    for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
                         modulesData[activityEvent.Type][module].CountByProcessor.Add(processor, 0);
                     }
 
@@ -149,7 +149,7 @@ namespace xtw {
                 // system metrics
                 var systemData = new Data();
 
-                for (var processor = 0; processor < Environment.ProcessorCount; processor++) {
+                for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
                     systemData.CountByProcessor.Add(processor, 0);
                 }
 
@@ -161,7 +161,7 @@ namespace xtw {
 
                 // print table headings
                 Console.Write($"{"Module",-20}");
-                for (var processor = 0; processor < Environment.ProcessorCount; processor++) {
+                for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
                     Console.Write($"CPU {processor,-8}");
                 }
                 Console.WriteLine("Total");
