@@ -94,7 +94,8 @@ namespace xtw {
                             "count_by_cpu": {
                                 "0": 0,
                                 "1": 0
-                            }
+                            },
+                            "start_times_ms": []
                         }
                     },
                     "DPC": {
@@ -103,7 +104,8 @@ namespace xtw {
                             "count_by_cpu": {
                                 "0": 0,
                                 "1": 0
-                            }
+                            },
+                            "start_times_ms": []
                         }
                     }
                 }
@@ -135,11 +137,11 @@ namespace xtw {
                     for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
                         modulesData[activityEvent.Type][module].CountByProcessor.Add(processor, 0);
                     }
-
                 }
 
                 modulesData[activityEvent.Type][module].RawDataset.Add(elapsedTimeUs);
                 modulesData[activityEvent.Type][module].CountByProcessor[activityEvent.Processor]++;
+                modulesData[activityEvent.Type][module].StartTimesMs.Add(activityEvent.StartTime.Nanoseconds / 1e+6);
             }
 
             string[] tableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
@@ -157,7 +159,7 @@ namespace xtw {
                 var modules = modulesData[interruptType];
 
                 // make count by cpu table
-                Console.WriteLine(GetTitle($"{shortInterruptType} Module Count by CPU:"));
+                Console.WriteLine(GetTitle($"{shortInterruptType} Count by Module:"));
 
                 // print table headings
                 Console.Write($"{"Module",-22}");
@@ -192,8 +194,35 @@ namespace xtw {
                 }
                 Console.Write($"{systemTotal,-12}\n");
 
+                // make modules intervals 
+                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Intervals by Module (ms):"));
+
+                // print table headings
+                Console.Write($"{"Module",-22}");
+                foreach (var tableHeading in tableHeadings) {
+                    Console.Write($"{tableHeading,-12}");
+                }
+                Console.WriteLine();
+
+                foreach (var module in modules.Keys) {
+                    var moduleData = modules[module];
+
+                    var intervals = new List<double>();
+
+                    // sort start times to calculate deltas
+                    moduleData.StartTimesMs.Sort();
+
+                    for (var i = 1; i < moduleData.StartTimesMs.Count; i++) {
+                        intervals.Add(moduleData.StartTimesMs[i] - moduleData.StartTimesMs[i - 1]);
+                    }
+
+                    var metrics = new ComputeMetrics(intervals);
+
+                    Console.WriteLine($"{module,-22:F2}{metrics.Maximum(),-12:F2}{metrics.Average(),-12:F2}{metrics.Minimum(),-12:F2}{metrics.StandardDeviation(),-12:F2}{metrics.Percentile(99),-12:F2}{metrics.Percentile(99.9),-12:F2}");
+                }
+
                 // make module elapsed times table
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Module Elapsed Times (usecs):"));
+                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Elapsed Time by Module (usecs):"));
 
                 // print table headings
                 Console.Write($"{"Module",-22}");
@@ -214,7 +243,7 @@ namespace xtw {
                 }
 
                 // make system elapsed times table
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} System Elapsed Times (usecs):"));
+                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Elapsed Time by System (usecs):"));
 
                 foreach (var tableHeading in tableHeadings) {
                     Console.Write($"{tableHeading,-12}");
