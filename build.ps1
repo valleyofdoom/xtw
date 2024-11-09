@@ -22,7 +22,7 @@ function main() {
     MSBuild.exe ".\xtw.sln" -p:Configuration=Release -p:Platform=x64
 
     # create final package
-    Copy-Item ".\xtw\bin\x64\Release\*" ".\build\xtw\"
+    Copy-Item ".\xtw\bin\x64\Release\*" ".\build\xtw\" -Recurse
 
     return 0
 }
