@@ -81,6 +81,34 @@ namespace xtw {
             traceProcessor.Process(progress);
 
             // initialize data dictionary
+
+            /*
+            structure of modulesData:
+
+            {
+                "modules": {
+                    "ISR": {
+                        "module.sys": {
+                            "raw_dataset": [],
+                            "count_by_cpu": {
+                                "0": 0,
+                                "1": 0
+                            }
+                        }
+                    },
+                    "DPC": {
+                        "module.sys": {
+                            "raw_dataset": [],
+                            "count_by_cpu": {
+                                "0": 0,
+                                "1": 0
+                            }
+                        }
+                    }
+                }
+            }
+             */
+
             var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, Data>> {
                 { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, Data>()},
                 { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, Data>()}
