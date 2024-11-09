@@ -125,7 +125,7 @@ namespace xtw {
             foreach (var activity in interruptHandlingData.Activity) {
                 var activityEvent = activity.Interval;
                 var module = activityEvent.HandlerImage.FileName;
-                var executionTimeUs = (activityEvent.StopTime.Nanoseconds - activityEvent.StartTime.Nanoseconds) / 1000;
+                var elapsedTimeUs = (activityEvent.StopTime.Nanoseconds - activityEvent.StartTime.Nanoseconds) / 1000;
 
                 // add module to dict if it does not exist yet
                 if (!modulesData[activityEvent.Type].ContainsKey(module)) {
@@ -138,7 +138,7 @@ namespace xtw {
 
                 }
 
-                modulesData[activityEvent.Type][module].RawDataset.Add(executionTimeUs);
+                modulesData[activityEvent.Type][module].RawDataset.Add(elapsedTimeUs);
                 modulesData[activityEvent.Type][module].CountByProcessor[activityEvent.Processor]++;
             }
 
@@ -192,8 +192,8 @@ namespace xtw {
                 }
                 Console.Write($"{systemTotal,-12}\n");
 
-                // make module execution times table
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Module Execution Times (usecs):"));
+                // make module elapsed times table
+                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} Module Elapsed Times (usecs):"));
 
                 // print table headings
                 Console.Write($"{"Module",-20}");
@@ -205,7 +205,7 @@ namespace xtw {
                 foreach (var module in modules.Keys) {
                     var moduleData = modules[module];
 
-                    // keep track of all execution times for system stats
+                    // keep track of all elapsed times for system stats
                     systemData.RawDataset.AddRange(moduleData.RawDataset);
 
                     var metrics = new ComputeMetrics(moduleData.RawDataset);
@@ -213,8 +213,8 @@ namespace xtw {
                     Console.WriteLine($"{module,-20:F2}{metrics.Maximum(),-12:F2}{metrics.Average(),-12:F2}{metrics.Minimum(),-12:F2}{metrics.StandardDeviation(),-12:F2}{metrics.Percentile(99),-12:F2}{metrics.Percentile(99.9),-12:F2}");
                 }
 
-                // make system execution times table
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} System Execution Times (usecs):"));
+                // make system elapsed times table
+                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} System Elapsed Times (usecs):"));
 
                 foreach (var tableHeading in tableHeadings) {
                     Console.Write($"{tableHeading,-12}");
