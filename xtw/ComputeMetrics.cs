@@ -9,15 +9,15 @@ namespace xtw {
         private double average;
 
         public double Minimum() {
-            return sortedDataset[0];
+            return size > 0 ? sortedDataset[0] : 0;
         }
 
         public double Maximum() {
-            return sortedDataset[size - 1];
+            return size > 0 ? sortedDataset[size - 1] : 0;
         }
 
         public double Average() {
-            return average;
+            return size > 0 ? average : 0;
         }
 
         public double StandardDeviation() {
@@ -27,11 +27,11 @@ namespace xtw {
                 standardDeviation += Math.Pow(executionTimeUs - average, 2);
             }
 
-            return Math.Sqrt(standardDeviation / (size - 1));
+            return size > 0 ? Math.Sqrt(standardDeviation / (size - 1)) : 0;
         }
 
         public double Percentile(double value) {
-            return sortedDataset[(int)Math.Ceiling(value / 100 * size) - 1];
+            return size > 0 ? sortedDataset[(int)Math.Ceiling(value / 100 * size) - 1] : 0;
         }
 
         public ComputeMetrics(List<double> dataset) {
