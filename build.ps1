@@ -23,6 +23,7 @@ function main() {
 
     # create final package
     Copy-Item ".\xtw\bin\x64\Release\*" ".\build\xtw\" -Recurse
+	Copy-Item ".\start_etl_collection.bat" ".\build\xtw\"
 
     return 0
 }

@@ -8,6 +8,13 @@ using System.Security.Principal;
 using Microsoft.Windows.EventTracing;
 using System.IO;
 using Microsoft.Windows.EventTracing.Cpu;
+using Microsoft.Diagnostics.Tracing.Parsers;
+using Microsoft.Diagnostics.Tracing;
+using Microsoft.Windows.EventTracing.Symbols;
+using System.Threading.Tasks;
+using Microsoft.Diagnostics.Tracing.Session;
+using System.Threading;
+using Serilog.Core;
 
 namespace xtw {
     internal class XTW {
@@ -29,22 +36,38 @@ namespace xtw {
             return $"{title}\n{line}";
         }
 
-        public static int Main() {
+        private static void StartTrace(int loggingSeconds, string sessionName, string etlPath) {
+            using (var ets = new TraceEventSession(sessionName, etlPath)) {
+                ets.EnableKernelProvider(
+                    KernelTraceEventParser.Keywords.Interrupt |
+                    KernelTraceEventParser.Keywords.DeferedProcedureCalls |
+                    KernelTraceEventParser.Keywords.ImageLoad
+                );
+
+                Thread.Sleep(loggingSeconds * 1000);
+            }
+        }
+
+        public static async Task<int> Main() {
             // create logger
             var log = new LoggerConfiguration()
                 .MinimumLevel.Is(LogEventLevel.Debug)
                 .WriteTo.Console()
                 .CreateLogger();
 
-            // parse arguments
-            Arguments args = null;
+            if (!IsAdmin()) {
+                log.Error("administrator privileges required");
+                return 1;
+            }
 
-            _ = Parser.Default.ParseArguments<Arguments>(Environment.GetCommandLineArgs()).WithParsed(parsedArgs => {
+            // parse arguments
+            CommandLineArgs args = null;
+
+            _ = Parser.Default.ParseArguments<CommandLineArgs>(Environment.GetCommandLineArgs()).WithParsed(parsedArgs => {
                 args = parsedArgs;
             });
 
             if (args == null) {
-                log.Error("CLI arguments error");
                 return 1;
             }
 
@@ -52,34 +75,8 @@ namespace xtw {
                 ShowBanner();
             }
 
-            if (!IsAdmin()) {
-                log.Error("administrator privileges required");
-                return 1;
-            }
-
-            if (!File.Exists(args.EtlFile)) {
-                log.Error($"{args.EtlFile} not exists");
-                return 1;
-            }
-
-            // load etl
-            var traceProcessor = TraceProcessor.Create(args.EtlFile);
-
-            // select events
-            var traceMetadata = traceProcessor.UseMetadata();
-            var pendingInterruptHandlingData = traceProcessor.UseInterruptHandlingData();
-
-            // setup callback for progress tracking
-            var currentPass = 0;
-            var progress = new Progress<TraceProcessingProgress>(traceProgress => {
-                if (traceProgress.CurrentPass + 1 > currentPass) {
-                    currentPass++;
-                    log.Information($"processing trace (pass {currentPass}/{traceProgress.TotalPasses})");
-                }
-            });
-
-            // process etl
-            traceProcessor.Process(progress);
+            // cd to directory of program
+            Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
 
             // initialize data dictionary
 
@@ -90,172 +87,400 @@ namespace xtw {
                 "modules": {
                     "ISR": {
                         "module.sys": {
-                            "raw_dataset": [],
-                            "count_by_cpu": {
+                            "elapsed_times_us": [],
+                            "elapsedtime_us_by_processor": {
                                 "0": 0,
                                 "1": 0
                             },
-                            "start_times_ms": []
+                            "count_by_processor": {
+                                "0": 0,
+                                "1": 0
+                            },
+                            "start_times_ms": [],
+                            "functions_data": { }
                         }
                     },
                     "DPC": {
                         "module.sys": {
-                            "raw_dataset": [],
-                            "count_by_cpu": {
+                            "elapsed_times_us": [],
+                            "elapsedtime_us_by_processor": {
                                 "0": 0,
                                 "1": 0
                             },
-                            "start_times_ms": []
+                            "count_by_processor": {
+                                "0": 0,
+                                "1": 0
+                            },
+                            "start_times_ms": [],
+                            "functions_data": { }
                         }
                     }
                 }
             }
              */
 
-            var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, Data>> {
-                { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, Data>()},
-                { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, Data>()}
+            var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, ModuleData>> {
+                { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, ModuleData>()},
+                { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, ModuleData>()}
             };
 
-            // get result of selected events
-            var interruptHandlingData = pendingInterruptHandlingData.Result;
-            if (interruptHandlingData.Activity.Count == 0) {
-                log.Error("no interrupt handling data in provided trace");
+            // either an etl file or record time must be specified
+            if (args.EtlFile == null && args.Timed == 0) {
+                Console.WriteLine("run xtw --help to see options");
+                return 0;
+            }
+
+            var etlFile = "";
+
+            if (args.EtlFile != null) {
+                etlFile = args.EtlFile;
+            } else {
+                Thread.Sleep(args.Delay * 1000); // 0 if not specified
+                log.Information($"collecting trace for {args.Timed}s");
+                StartTrace(args.Timed, "xtw", "xtw_raw.etl");
+
+                // add required symbols metadata
+                // https://stackoverflow.com/questions/65351589/windows-performance-analyzer-cannot-load-symbols/65532497#65532497
+
+                var mergeETLs = new string[] { "xtw_raw.etl" };
+                ETWKernelControl.Merge(mergeETLs, "xtw.etl", EVENT_TRACE_MERGE_EXTENDED_DATA.IMAGEID);
+
+                // remove trace without metadata
+                File.Delete("xtw_raw.etl");
+
+                etlFile = "xtw.etl";
+            }
+
+            if (!File.Exists(args.EtlFile)) {
+                log.Error($"trace {args.EtlFile} not exists");
                 return 1;
             }
 
-            foreach (var activity in interruptHandlingData.Activity) {
-                var activityEvent = activity.Interval;
-                var module = activityEvent.HandlerImage.FileName;
-                var elapsedTimeUs = (activityEvent.StopTime.Nanoseconds - activityEvent.StartTime.Nanoseconds) / 1000;
+            // load the etl
+            var traceProcessor = TraceProcessor.Create(etlFile);
 
-                // add module to dict if it does not exist yet
-                if (!modulesData[activityEvent.Type].ContainsKey(module)) {
-                    modulesData[activityEvent.Type].Add(module, new Data());
+            // select events
+            var traceMetadata = traceProcessor.UseMetadata();
+            var pendingSymbols = traceProcessor.UseSymbols();
+            var pendingInterruptHandlingData = traceProcessor.UseInterruptHandlingData();
 
-                    // populate processors for data block
-                    for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                        modulesData[activityEvent.Type][module].CountByProcessor.Add(processor, 0);
-                    }
+            // setup callback for progress tracking
+            var currentPass = 0;
+
+            var progressCallback = new Progress<TraceProcessingProgress>(progress => {
+                if (progress.CurrentPass + 1 > currentPass) {
+                    currentPass++;
+                    log.Information($"processing trace (pass {currentPass}/{progress.TotalPasses})");
                 }
+            });
 
-                modulesData[activityEvent.Type][module].RawDataset.Add(elapsedTimeUs);
-                modulesData[activityEvent.Type][module].CountByProcessor[activityEvent.Processor]++;
-                modulesData[activityEvent.Type][module].StartTimesMs.Add(activityEvent.StartTime.Nanoseconds / 1e+6);
+            traceProcessor.Process(progressCallback);
+
+            // get result of selected events
+            var interruptHandlingData = pendingInterruptHandlingData.Result;
+
+            if (interruptHandlingData.Activity.Count == 0) {
+                log.Error($"no interrupt handling data in {etlFile}");
+                return 1;
             }
 
-            string[] tableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
+            if (args.Symbols) {
+                var symbols = pendingSymbols.Result;
+
+                var symbolsProgressCallback = new Progress<SymbolLoadingProgress>(progress => {
+                    var percentage = (double)progress.ImagesProcessed / progress.ImagesTotal * 100;
+
+                    log.Information($"loading symbols {percentage:F2}% ({progress.ImagesProcessed}/{progress.ImagesTotal})");
+                });
+
+                await symbols.LoadSymbolsAsync(SymCachePath.Automatic, SymbolPath.Automatic, symbolsProgressCallback);
+
+                if (!symbols.AreSymbolsLoaded) {
+                    log.Error("symbols are not loaded");
+                    return 1;
+                }
+            }
+
+            var reportLines = new List<string>();
+
+            var moduleRightPadding = args.Symbols ? 52 : 32;
+            var cpuRightPadding = 20;
+            string[] metricsTableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
+
+            foreach (var activity in interruptHandlingData.Activity) {
+                var interval = activity.Interval;
+                var module = interval.HandlerImage.FileName;
+                var elapsedTimeUsec = (double)(interval.StopTime.Nanoseconds - interval.StartTime.Nanoseconds) / 1000;
+
+                // try get function name, requires symbols to be loaded
+                var functionName = "";
+                try {
+                    functionName = interval.HandlerStackFrame.Symbol.FunctionName;
+                } catch (NullReferenceException) { }
+
+                // populate data for module
+                if (!modulesData[interval.Type].ContainsKey(module)) {
+                    modulesData[interval.Type][module] = new ModuleData(traceMetadata.ProcessorCount);
+                }
+
+                modulesData[interval.Type][module].Data.ElapsedTimesUs.Add(elapsedTimeUsec);
+                modulesData[interval.Type][module].Data.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
+                modulesData[interval.Type][module].Data.CountByProcessor[interval.Processor]++;
+                modulesData[interval.Type][module].Data.StartTimesMs.Add(interval.StartTime.Nanoseconds / 1e+6);
+
+                // populate data for module functions
+                if (functionName != "") {
+                    if (!modulesData[interval.Type][module].FunctionsData.ContainsKey(functionName)) {
+                        modulesData[interval.Type][module].FunctionsData[functionName] = new Data(traceMetadata.ProcessorCount);
+                    }
+
+                    modulesData[interval.Type][module].FunctionsData[functionName].ElapsedTimesUs.Add(elapsedTimeUsec);
+                    modulesData[interval.Type][module].FunctionsData[functionName].ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
+                    modulesData[interval.Type][module].FunctionsData[functionName].CountByProcessor[interval.Processor]++;
+                    modulesData[interval.Type][module].FunctionsData[functionName].StartTimesMs.Add(interval.StartTime.Nanoseconds / 1e+6);
+                }
+
+            }
+
+            var traceSeconds = (traceMetadata.StopTime - traceMetadata.StartTime).Seconds;
+            reportLines.Add($"Trace duration: {traceSeconds} second(s)\n\n");
 
             // print metrics
             foreach (var interruptType in modulesData.Keys) {
-                // system metrics
-                var systemData = new Data();
+                // to keep track of overall system ISR/DPC metrics
+                var dataSystem = new Data(traceMetadata.ProcessorCount);
 
-                for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                    systemData.CountByProcessor.Add(processor, 0);
-                }
+                var formattedInterruptType =
+                    interruptType == InterruptHandlingType.InterruptServiceRoutine
+                    ? "Interrupts (ISRs)"
+                    : "Deferred Procedure Calls (DPCs)";
 
-                var shortInterruptType = interruptType == InterruptHandlingType.InterruptServiceRoutine ? "Interrupts" : "Deferred Procedure Calls";
                 var modules = modulesData[interruptType];
 
-                // make count by cpu table
-                Console.WriteLine(GetTitle($"{shortInterruptType} - Module Usage (counts)"));
+                // TABLE: ISR/DPC - Total Elapsed Time (usecs) and Count by CPU
+                reportLines.Add(GetTitle($"{formattedInterruptType} - Total Elapsed Time (usecs) and Count by CPU") + "\n\n");
 
-                // print table headings
-                Console.Write($"    {"Module",-22}");
+                reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                    Console.Write($"CPU {processor,-8}");
+                    reportLines.Add($"CPU {processor.ToString().PadRight(cpuRightPadding - 4)}"); // -4 due to the table-wide indent
                 }
-                Console.WriteLine("Total");
+                reportLines.Add("Total\n");
 
-                foreach (var module in modules.Keys) {
-                    var moduleData = modules[module];
+                foreach (var moduleName in modules.Keys) {
+                    var moduleData = modules[moduleName];
 
-                    var moduleTotal = 0;
+                    // this is for the last column, to have stats for all cores
+                    var totalModuleElapsedTime = 0.0;
+                    var totalModuleInterruptCount = 0;
 
-                    Console.Write($"    {module,-22}");
-                    foreach (var processor in moduleData.CountByProcessor.Keys) {
-                        var count = moduleData.CountByProcessor[processor];
-                        Console.Write($"{count,-12}");
-                        moduleTotal += count;
+                    reportLines.Add($"    {moduleName.PadRight(moduleRightPadding)}");
+
+                    for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
+                        var elapsedTime = moduleData.Data.ElapsedTimeUsByProcessor[processor];
+                        var count = moduleData.Data.CountByProcessor[processor];
+
+                        var processorModuleTotals = count > 0 ? $"{elapsedTime:F2}us ({count})" : "-";
+                        reportLines.Add(processorModuleTotals.PadRight(cpuRightPadding));
+
+                        totalModuleElapsedTime += elapsedTime;
+                        totalModuleInterruptCount += count;
 
                         // keep track of total cpu count for system stats
-                        systemData.CountByProcessor[processor] += count;
+                        dataSystem.ElapsedTimeUsByProcessor[processor] += elapsedTime;
+                        dataSystem.CountByProcessor[processor] += count;
                     }
-                    Console.Write($"{moduleTotal,-12}\n");
+
+                    var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2}us ({totalModuleInterruptCount})" : "-";
+                    reportLines.Add(moduleTotals.PadRight(cpuRightPadding) + "\n");
+
+                    foreach (var functionName in moduleData.FunctionsData.Keys) {
+                        var functionData = moduleData.FunctionsData[functionName];
+
+                        var totalFunctionElapsedTime = 0.0;
+                        var totalFunctionCount = 0;
+
+                        reportLines.Add($"        └───{functionName.PadRight(moduleRightPadding - 8)}"); // -8 due to the table-wide indent and branch
+
+                        for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
+                            var elapsedTime = functionData.ElapsedTimeUsByProcessor[processor];
+                            var count = functionData.CountByProcessor[processor];
+
+                            var processorFunctionTotals = count > 0 ? $"{elapsedTime:F2}us ({count})" : "-";
+                            reportLines.Add(processorFunctionTotals.PadRight(cpuRightPadding));
+
+                            totalFunctionElapsedTime += elapsedTime;
+                            totalFunctionCount += count;
+                        }
+
+                        var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F2}us ({totalFunctionCount})" : "-";
+                        reportLines.Add($"{functionTotals.PadRight(cpuRightPadding)}\n");
+                    }
                 }
 
-                var systemTotal = 0;
+                // write system total row
+                var totalSystemElapsedTime = 0.0;
+                var totalSystemCount = 0;
 
-                Console.Write($"    {"Total",-22}");
-                foreach (var count in systemData.CountByProcessor.Values) {
-                    Console.Write($"{count,-12}");
-                    systemTotal += count;
+                reportLines.Add($"\n    {"Total".PadRight(moduleRightPadding)}");
+
+                for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
+                    var elapsedTime = dataSystem.ElapsedTimeUsByProcessor[processor];
+                    var count = dataSystem.CountByProcessor[processor];
+
+                    var processorSystemTotals = count > 0 ? $"{elapsedTime:F2}us ({count})" : "-";
+                    reportLines.Add(processorSystemTotals.PadRight(cpuRightPadding).PadRight(cpuRightPadding));
+
+                    totalSystemElapsedTime += elapsedTime;
+                    totalSystemCount += count;
                 }
-                Console.Write($"{systemTotal,-12}\n\n");
 
-                // make modules intervals 
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} - Module Interval (ms)"));
+                var systemTotals = totalSystemCount > 0 ? $"{totalSystemElapsedTime:F2}us ({totalSystemCount})" : "-";
+                reportLines.Add(systemTotals.PadRight(cpuRightPadding) + "\n");
 
-                // print table headings
-                Console.Write($"    {"Module",-22}");
-                foreach (var tableHeading in tableHeadings) {
-                    Console.Write($"{tableHeading,-12}");
+                // TABLE: ISR/DPC - Interval (ms)
+                reportLines.Add(GetTitle($"\n\n{formattedInterruptType} - Interval (ms)") + "\n");
+
+                reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
+                foreach (var metricTableHeading in metricsTableHeadings) {
+                    reportLines.Add($"{metricTableHeading,-12}");
                 }
-                Console.WriteLine();
+                reportLines.Add("\n");
 
-                foreach (var module in modules.Keys) {
-                    var moduleData = modules[module];
+                var systemIntervalsMs = new List<double>();
 
-                    var intervals = new List<double>();
+                foreach (var moduleName in modules.Keys) {
+                    var moduleData = modules[moduleName];
+
+                    var moduleIntervalsMs = new List<double>();
 
                     // sort start times to calculate deltas
-                    moduleData.StartTimesMs.Sort();
+                    moduleData.Data.StartTimesMs.Sort();
 
-                    for (var i = 1; i < moduleData.StartTimesMs.Count; i++) {
-                        intervals.Add(moduleData.StartTimesMs[i] - moduleData.StartTimesMs[i - 1]);
+                    for (var i = 1; i < moduleData.Data.StartTimesMs.Count; i++) {
+                        var msBetweenEvents = moduleData.Data.StartTimesMs[i] - moduleData.Data.StartTimesMs[i - 1];
+                        moduleIntervalsMs.Add(msBetweenEvents);
+
+                        // keep track of system intervals
+                        systemIntervalsMs.Add(msBetweenEvents);
                     }
 
-                    var metrics = new ComputeMetrics(intervals);
+                    var moduleIntervalMetrics = new ComputeMetrics(moduleIntervalsMs);
+                    reportLines.Add(
+                        $"    " +
+                        $"{moduleName.PadRight(moduleRightPadding)}" +
+                        $"{moduleIntervalMetrics.Maximum(),-12:F2}" +
+                        $"{moduleIntervalMetrics.Average(),-12:F2}" +
+                        $"{moduleIntervalMetrics.Minimum(),-12:F2}" +
+                        $"{moduleIntervalMetrics.StandardDeviation(),-12:F2}" +
+                        $"{moduleIntervalMetrics.Percentile(99),-12:F2}" +
+                        $"{moduleIntervalMetrics.Percentile(99.9),-12:F2}" +
+                        $"\n"
+                    );
 
-                    Console.WriteLine($"    {module,-22:F2}{metrics.Maximum(),-12:F2}{metrics.Average(),-12:F2}{metrics.Minimum(),-12:F2}{metrics.StandardDeviation(),-12:F2}{metrics.Percentile(99),-12:F2}{metrics.Percentile(99.9),-12:F2}");
+                    foreach (var functionName in moduleData.FunctionsData.Keys) {
+                        var functionData = moduleData.FunctionsData[functionName];
+
+                        var functionIntervalsMs = new List<double>();
+
+                        // sort start times to calculate deltas
+                        functionData.StartTimesMs.Sort();
+
+                        for (var i = 1; i < functionData.StartTimesMs.Count; i++) {
+                            var msBetweenEvents = functionData.StartTimesMs[i] - functionData.StartTimesMs[i - 1];
+                            functionIntervalsMs.Add(msBetweenEvents);
+                        }
+
+                        var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs);
+                        reportLines.Add(
+                            $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
+                            $"{functionIntervalMetrics.Maximum(),-12:F2}" +
+                            $"{functionIntervalMetrics.Average(),-12:F2}" +
+                            $"{functionIntervalMetrics.Minimum(),-12:F2}" +
+                            $"{functionIntervalMetrics.StandardDeviation(),-12:F2}" +
+                            $"{functionIntervalMetrics.Percentile(99),-12:F2}" +
+                            $"{functionIntervalMetrics.Percentile(99.9),-12:F2}" +
+                            $"\n"
+                        );
+                    }
                 }
 
-                Console.WriteLine();
+                var systemIntervalMetrics = new ComputeMetrics(systemIntervalsMs);
+                reportLines.Add(
+                    $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
+                    $"{systemIntervalMetrics.Maximum(),-12:F2}" +
+                    $"{systemIntervalMetrics.Average(),-12:F2}" +
+                    $"{systemIntervalMetrics.Minimum(),-12:F2}" +
+                    $"{systemIntervalMetrics.StandardDeviation(),-12:F2}" +
+                    $"{systemIntervalMetrics.Percentile(99),-12:F2}" +
+                    $"{systemIntervalMetrics.Percentile(99.9),-12:F2}" +
+                    $"\n\n\n"
+                );
 
-                // make module elapsed times table
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} - Module Elapsed Time (usecs)"));
+                // TABLE: ISR/DPC - - Elapsed Time (usecs)
+                reportLines.Add(GetTitle($"{formattedInterruptType} - Elapsed Time (usecs)") + "\n");
 
-                // print table headings
-                Console.Write($"    {"Module",-22}");
-                foreach (var tableHeading in tableHeadings) {
-                    Console.Write($"{tableHeading,-12}");
+                reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
+                foreach (var metricTableHeading in metricsTableHeadings) {
+                    reportLines.Add($"{metricTableHeading,-12}");
                 }
-                Console.WriteLine();
+                reportLines.Add("\n");
 
-                foreach (var module in modules.Keys) {
-                    var moduleData = modules[module];
+                foreach (var moduleName in modules.Keys) {
+                    var moduleData = modules[moduleName];
+
+                    var moduleElapsedMetrics = new ComputeMetrics(moduleData.Data.ElapsedTimesUs);
+                    reportLines.Add(
+                        $"    {moduleName.PadRight(moduleRightPadding)}" +
+                        $"{moduleElapsedMetrics.Maximum(),-12:F2}" +
+                        $"{moduleElapsedMetrics.Average(),-12:F2}" +
+                        $"{moduleElapsedMetrics.Minimum(),-12:F2}" +
+                        $"{moduleElapsedMetrics.StandardDeviation(),-12:F2}" +
+                        $"{moduleElapsedMetrics.Percentile(99),-12:F2}" +
+                        $"{moduleElapsedMetrics.Percentile(99.9),-12:F2}" +
+                        $"\n"
+                    );
+
+                    foreach (var functionName in moduleData.FunctionsData.Keys) {
+                        var functionData = moduleData.FunctionsData[functionName];
+
+                        var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs);
+                        reportLines.Add(
+                            $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
+                            $"{functionElapsedMetrics.Maximum(),-12:F2}" +
+                            $"{functionElapsedMetrics.Average(),-12:F2}" +
+                            $"{functionElapsedMetrics.Minimum(),-12:F2}" +
+                            $"{functionElapsedMetrics.StandardDeviation(),-12:F2}" +
+                            $"{functionElapsedMetrics.Percentile(99),-12:F2}" +
+                            $"{functionElapsedMetrics.Percentile(99.9),-12:F2}" +
+                            $"\n"
+                        );
+                    }
 
                     // keep track of all elapsed times for system stats
-                    systemData.RawDataset.AddRange(moduleData.RawDataset);
-
-                    var metrics = new ComputeMetrics(moduleData.RawDataset);
-
-                    Console.WriteLine($"    {module,-22:F2}{metrics.Maximum(),-12:F2}{metrics.Average(),-12:F2}{metrics.Minimum(),-12:F2}{metrics.StandardDeviation(),-12:F2}{metrics.Percentile(99),-12:F2}{metrics.Percentile(99.9),-12:F2}");
+                    dataSystem.ElapsedTimesUs.AddRange(moduleData.Data.ElapsedTimesUs);
                 }
 
-                Console.WriteLine();
+                var systemMetrics = new ComputeMetrics(dataSystem.ElapsedTimesUs);
+                reportLines.Add(
+                    $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
+                    $"{systemMetrics.Maximum(),-12:F2}" +
+                    $"{systemMetrics.Average(),-12:F2}" +
+                    $"{systemMetrics.Minimum(),-12:F2}" +
+                    $"{systemMetrics.StandardDeviation(),-12:F2}" +
+                    $"{systemMetrics.Percentile(99),-12:F2}" +
+                    $"{systemMetrics.Percentile(99.9),-12:F2}" +
+                    $"\n\n"
+                );
 
-                // make system elapsed times table
-                Console.WriteLine(GetTitle($"\n\n{shortInterruptType} - System Elapsed Time (usecs)"));
+                reportLines.Add("\n");
+            }
 
-                foreach (var tableHeading in tableHeadings) {
-                    Console.Write($"    {tableHeading,-8}");
+            var outputFile = args.OutputFile ?? "xtw-report.txt";
+
+            using (var writer = new StreamWriter(outputFile)) {
+                for (var i = 0; i < reportLines.Count; i++) {
+                    writer.Write($"{reportLines[i]}");
                 }
-                Console.WriteLine();
-
-                var systemMetrics = new ComputeMetrics(systemData.RawDataset);
-                Console.WriteLine($"    {systemMetrics.Maximum(),-12:F2}{systemMetrics.Average(),-12:F2}{systemMetrics.Minimum(),-12:F2}{systemMetrics.StandardDeviation(),-12:F2}{systemMetrics.Percentile(99),-12:F2}{systemMetrics.Percentile(99.9),-12:F2}\n\n\n");
             }
 
             return 0;

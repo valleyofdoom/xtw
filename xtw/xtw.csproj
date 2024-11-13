@@ -44,9 +44,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Arguments.cs" />
+    <Compile Include="CommandLineArgs.cs" />
     <Compile Include="ComputeMetrics.cs" />
     <Compile Include="Data.cs" />
+    <Compile Include="ModuleData.cs" />
     <Compile Include="XTW.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -56,6 +57,9 @@
   <ItemGroup>
     <PackageReference Include="CommandLineParser">
       <Version>2.9.1</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent">
+      <Version>3.1.17</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Windows.EventTracing.Processing.All">
       <Version>1.12.10</Version>
