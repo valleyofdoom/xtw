@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using CommandLine;
@@ -484,6 +484,10 @@ namespace xtw {
                     writer.Write($"{reportLines[i]}");
                 }
             }
+
+            log.Information($"report saved in {outputFile}");
+
+            Console.WriteLine();
 
             return 0;
         }
