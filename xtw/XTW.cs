@@ -14,7 +14,6 @@ using Microsoft.Windows.EventTracing.Symbols;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.Tracing.Session;
 using System.Threading;
-using Serilog.Core;
 
 namespace xtw {
     internal class XTW {
