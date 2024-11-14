@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using CommandLine;
@@ -281,7 +281,7 @@ namespace xtw {
                         var elapsedTime = moduleData.Data.ElapsedTimeUsByProcessor[processor];
                         var count = moduleData.Data.CountByProcessor[processor];
 
-                        var processorModuleTotals = count > 0 ? $"{elapsedTime:F2}us ({count})" : "-";
+                        var processorModuleTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
                         reportLines.Add(processorModuleTotals.PadRight(cpuRightPadding));
 
                         totalModuleElapsedTime += elapsedTime;
@@ -292,7 +292,7 @@ namespace xtw {
                         dataSystem.CountByProcessor[processor] += count;
                     }
 
-                    var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2}us ({totalModuleInterruptCount})" : "-";
+                    var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2} ({totalModuleInterruptCount})" : "-";
                     reportLines.Add(moduleTotals.PadRight(cpuRightPadding) + "\n");
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
@@ -307,14 +307,14 @@ namespace xtw {
                             var elapsedTime = functionData.ElapsedTimeUsByProcessor[processor];
                             var count = functionData.CountByProcessor[processor];
 
-                            var processorFunctionTotals = count > 0 ? $"{elapsedTime:F2}us ({count})" : "-";
+                            var processorFunctionTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
                             reportLines.Add(processorFunctionTotals.PadRight(cpuRightPadding));
 
                             totalFunctionElapsedTime += elapsedTime;
                             totalFunctionCount += count;
                         }
 
-                        var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F2}us ({totalFunctionCount})" : "-";
+                        var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F2} ({totalFunctionCount})" : "-";
                         reportLines.Add($"{functionTotals.PadRight(cpuRightPadding)}\n");
                     }
                 }
@@ -329,14 +329,14 @@ namespace xtw {
                     var elapsedTime = dataSystem.ElapsedTimeUsByProcessor[processor];
                     var count = dataSystem.CountByProcessor[processor];
 
-                    var processorSystemTotals = count > 0 ? $"{elapsedTime:F2}us ({count})" : "-";
+                    var processorSystemTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
                     reportLines.Add(processorSystemTotals.PadRight(cpuRightPadding).PadRight(cpuRightPadding));
 
                     totalSystemElapsedTime += elapsedTime;
                     totalSystemCount += count;
                 }
 
-                var systemTotals = totalSystemCount > 0 ? $"{totalSystemElapsedTime:F2}us ({totalSystemCount})" : "-";
+                var systemTotals = totalSystemCount > 0 ? $"{totalSystemElapsedTime:F2} ({totalSystemCount})" : "-";
                 reportLines.Add(systemTotals.PadRight(cpuRightPadding) + "\n");
 
                 // TABLE: ISR/DPC - Interval (ms)
