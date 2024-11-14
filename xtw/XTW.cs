@@ -18,10 +18,10 @@ using Serilog.Core;
 
 namespace xtw {
     internal class XTW {
-        private static void ShowBanner() {
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
+        private static Version VERSION = Assembly.GetExecutingAssembly().GetName().Version;
 
-            Console.WriteLine($"XTW Version {version.Major}.{version.Minor}.{version.Build} - GPLv3\nGitHub - https://github.com/valleyofdoom\n");
+        private static void ShowBanner() {
+            Console.WriteLine($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build} - GPLv3\nGitHub - https://github.com/valleyofdoom\n");
         }
 
         private static bool IsAdmin() {
@@ -241,6 +241,8 @@ namespace xtw {
                 }
 
             }
+
+            reportLines.Add($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build}\n\n");
 
             var traceSeconds = (traceMetadata.StopTime - traceMetadata.StartTime).Seconds;
             reportLines.Add($"Trace duration: {traceSeconds} second(s)\n\n");
