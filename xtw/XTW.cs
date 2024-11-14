@@ -151,8 +151,8 @@ namespace xtw {
                 etlFile = "xtw.etl";
             }
 
-            if (!File.Exists(args.EtlFile)) {
-                log.Error($"trace {args.EtlFile} not exists");
+            if (!File.Exists(etlFile)) {
+                log.Error($"trace {etlFile} not exists");
                 return 1;
             }
 
