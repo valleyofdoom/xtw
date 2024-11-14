@@ -17,17 +17,21 @@ namespace xtw {
         }
 
         public double Average() {
-            return size > 0 ? average : 0;
+            return average;
         }
 
         public double StandardDeviation() {
+            if (size == 1) {
+                return 0;
+            }
+
             var standardDeviation = 0.0;
 
             foreach (var executionTimeUs in sortedDataset) {
                 standardDeviation += Math.Pow(executionTimeUs - average, 2);
             }
 
-            return size > 0 ? Math.Sqrt(standardDeviation / (size - 1)) : 0;
+            return Math.Sqrt(standardDeviation / (size - 1));
         }
 
         public double Percentile(double value) {
@@ -40,7 +44,7 @@ namespace xtw {
 
             // cache values
             size = sortedDataset.Count;
-            average = sortedDataset.Sum() / size;
+            average = size > 0 ? sortedDataset.Sum() / size : 0;
         }
     }
 }
