@@ -203,7 +203,8 @@ namespace xtw {
             var reportLines = new List<string>();
 
             var moduleRightPadding = args.Symbols ? 52 : 32;
-            var cpuRightPadding = 20;
+            var metricsRightPadding = 20;
+
             string[] metricsTableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
 
             foreach (var activity in interruptHandlingData.Activity) {
@@ -263,7 +264,7 @@ namespace xtw {
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                    reportLines.Add($"CPU {processor.ToString().PadRight(cpuRightPadding - 4)}"); // -4 due to the table-wide indent
+                    reportLines.Add($"CPU {processor.ToString().PadRight(metricsRightPadding - 4)}"); // -4 due to the table-wide indent
                 }
                 reportLines.Add("Total\n");
 
@@ -281,7 +282,7 @@ namespace xtw {
                         var count = moduleData.Data.CountByProcessor[processor];
 
                         var processorModuleTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
-                        reportLines.Add(processorModuleTotals.PadRight(cpuRightPadding));
+                        reportLines.Add(processorModuleTotals.PadRight(metricsRightPadding));
 
                         totalModuleElapsedTime += elapsedTime;
                         totalModuleInterruptCount += count;
@@ -292,7 +293,7 @@ namespace xtw {
                     }
 
                     var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2} ({totalModuleInterruptCount})" : "-";
-                    reportLines.Add(moduleTotals.PadRight(cpuRightPadding) + "\n");
+                    reportLines.Add(moduleTotals.PadRight(metricsRightPadding) + "\n");
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         var functionData = moduleData.FunctionsData[functionName];
@@ -307,14 +308,14 @@ namespace xtw {
                             var count = functionData.CountByProcessor[processor];
 
                             var processorFunctionTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
-                            reportLines.Add(processorFunctionTotals.PadRight(cpuRightPadding));
+                            reportLines.Add(processorFunctionTotals.PadRight(metricsRightPadding));
 
                             totalFunctionElapsedTime += elapsedTime;
                             totalFunctionCount += count;
                         }
 
                         var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F2} ({totalFunctionCount})" : "-";
-                        reportLines.Add($"{functionTotals.PadRight(cpuRightPadding)}\n");
+                        reportLines.Add($"{functionTotals.PadRight(metricsRightPadding)}\n");
                     }
                 }
 
@@ -329,21 +330,21 @@ namespace xtw {
                     var count = dataSystem.CountByProcessor[processor];
 
                     var processorSystemTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
-                    reportLines.Add(processorSystemTotals.PadRight(cpuRightPadding).PadRight(cpuRightPadding));
+                    reportLines.Add(processorSystemTotals.PadRight(metricsRightPadding).PadRight(metricsRightPadding));
 
                     totalSystemElapsedTime += elapsedTime;
                     totalSystemCount += count;
                 }
 
                 var systemTotals = totalSystemCount > 0 ? $"{totalSystemElapsedTime:F2} ({totalSystemCount})" : "-";
-                reportLines.Add(systemTotals.PadRight(cpuRightPadding) + "\n");
+                reportLines.Add(systemTotals.PadRight(metricsRightPadding) + "\n");
 
                 // TABLE: ISR/DPC - Interval (ms)
                 reportLines.Add(GetTitle($"\n\n{formattedInterruptType} - Interval (ms)") + "\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 foreach (var metricTableHeading in metricsTableHeadings) {
-                    reportLines.Add($"{metricTableHeading,-12}");
+                    reportLines.Add(metricTableHeading.PadRight(metricsRightPadding));
                 }
                 reportLines.Add("\n");
 
@@ -369,12 +370,12 @@ namespace xtw {
                     reportLines.Add(
                         $"    " +
                         $"{moduleName.PadRight(moduleRightPadding)}" +
-                        $"{moduleIntervalMetrics.Maximum(),-12:F2}" +
-                        $"{moduleIntervalMetrics.Average(),-12:F2}" +
-                        $"{moduleIntervalMetrics.Minimum(),-12:F2}" +
-                        $"{moduleIntervalMetrics.StandardDeviation(),-12:F2}" +
-                        $"{moduleIntervalMetrics.Percentile(99),-12:F2}" +
-                        $"{moduleIntervalMetrics.Percentile(99.9),-12:F2}" +
+                        $"{moduleIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
                         $"\n"
                     );
 
@@ -394,12 +395,12 @@ namespace xtw {
                         var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs);
                         reportLines.Add(
                             $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
-                            $"{functionIntervalMetrics.Maximum(),-12:F2}" +
-                            $"{functionIntervalMetrics.Average(),-12:F2}" +
-                            $"{functionIntervalMetrics.Minimum(),-12:F2}" +
-                            $"{functionIntervalMetrics.StandardDeviation(),-12:F2}" +
-                            $"{functionIntervalMetrics.Percentile(99),-12:F2}" +
-                            $"{functionIntervalMetrics.Percentile(99.9),-12:F2}" +
+                            $"{functionIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
                             $"\n"
                         );
                     }
@@ -408,12 +409,12 @@ namespace xtw {
                 var systemIntervalMetrics = new ComputeMetrics(systemIntervalsMs);
                 reportLines.Add(
                     $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
-                    $"{systemIntervalMetrics.Maximum(),-12:F2}" +
-                    $"{systemIntervalMetrics.Average(),-12:F2}" +
-                    $"{systemIntervalMetrics.Minimum(),-12:F2}" +
-                    $"{systemIntervalMetrics.StandardDeviation(),-12:F2}" +
-                    $"{systemIntervalMetrics.Percentile(99),-12:F2}" +
-                    $"{systemIntervalMetrics.Percentile(99.9),-12:F2}" +
+                    $"{systemIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
                     $"\n\n\n"
                 );
 
@@ -422,7 +423,7 @@ namespace xtw {
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 foreach (var metricTableHeading in metricsTableHeadings) {
-                    reportLines.Add($"{metricTableHeading,-12}");
+                    reportLines.Add(metricTableHeading.PadRight(metricsRightPadding));
                 }
                 reportLines.Add("\n");
 
@@ -432,12 +433,12 @@ namespace xtw {
                     var moduleElapsedMetrics = new ComputeMetrics(moduleData.Data.ElapsedTimesUs);
                     reportLines.Add(
                         $"    {moduleName.PadRight(moduleRightPadding)}" +
-                        $"{moduleElapsedMetrics.Maximum(),-12:F2}" +
-                        $"{moduleElapsedMetrics.Average(),-12:F2}" +
-                        $"{moduleElapsedMetrics.Minimum(),-12:F2}" +
-                        $"{moduleElapsedMetrics.StandardDeviation(),-12:F2}" +
-                        $"{moduleElapsedMetrics.Percentile(99),-12:F2}" +
-                        $"{moduleElapsedMetrics.Percentile(99.9),-12:F2}" +
+                        $"{moduleElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Average():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
                         $"\n"
                     );
 
@@ -447,12 +448,12 @@ namespace xtw {
                         var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs);
                         reportLines.Add(
                             $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
-                            $"{functionElapsedMetrics.Maximum(),-12:F2}" +
-                            $"{functionElapsedMetrics.Average(),-12:F2}" +
-                            $"{functionElapsedMetrics.Minimum(),-12:F2}" +
-                            $"{functionElapsedMetrics.StandardDeviation(),-12:F2}" +
-                            $"{functionElapsedMetrics.Percentile(99),-12:F2}" +
-                            $"{functionElapsedMetrics.Percentile(99.9),-12:F2}" +
+                            $"{functionElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Average():F2}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
                             $"\n"
                         );
                     }
@@ -464,12 +465,12 @@ namespace xtw {
                 var systemMetrics = new ComputeMetrics(dataSystem.ElapsedTimesUs);
                 reportLines.Add(
                     $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
-                    $"{systemMetrics.Maximum(),-12:F2}" +
-                    $"{systemMetrics.Average(),-12:F2}" +
-                    $"{systemMetrics.Minimum(),-12:F2}" +
-                    $"{systemMetrics.StandardDeviation(),-12:F2}" +
-                    $"{systemMetrics.Percentile(99),-12:F2}" +
-                    $"{systemMetrics.Percentile(99.9),-12:F2}" +
+                    $"{systemMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Average():F2}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
                     $"\n\n"
                 );
 
