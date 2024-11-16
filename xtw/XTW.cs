@@ -260,13 +260,18 @@ namespace xtw {
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         if (functionName.Length > shortestModuleNameLength) {
-                            shortestModuleNameLength = moduleName.Length;
+                            shortestModuleNameLength = functionName.Length;
                         }
                     }
                 }
 
                 // this will give us the space between module and first column
                 var moduleRightPadding = shortestModuleNameLength + 10;
+
+                if (args.Symbols) {
+                    // account for indent
+                    moduleRightPadding += 4;
+                }
 
                 // to keep track of overall system ISR/DPC metrics
                 var dataSystem = new Data(traceMetadata.ProcessorCount);
