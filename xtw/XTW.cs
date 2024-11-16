@@ -201,10 +201,7 @@ namespace xtw {
             }
 
             var reportLines = new List<string>();
-
-            var moduleRightPadding = args.Symbols ? 52 : 32;
             var metricsRightPadding = 20;
-
             string[] metricsTableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
 
             foreach (var activity in interruptHandlingData.Activity) {
@@ -249,6 +246,28 @@ namespace xtw {
 
             // print metrics
             foreach (var interruptType in modulesData.Keys) {
+                var modules = modulesData[interruptType];
+
+                // get shortest right padding for module/symbol names
+                var shortestModuleNameLength = 0;
+
+                foreach (var moduleName in modules.Keys) {
+                    var moduleData = modules[moduleName];
+
+                    if (moduleName.Length > shortestModuleNameLength) {
+                        shortestModuleNameLength = moduleName.Length;
+                    }
+
+                    foreach (var functionName in moduleData.FunctionsData.Keys) {
+                        if (functionName.Length > shortestModuleNameLength) {
+                            shortestModuleNameLength = moduleName.Length;
+                        }
+                    }
+                }
+
+                // this will give us the space between module and first column
+                var moduleRightPadding = shortestModuleNameLength + 10;
+
                 // to keep track of overall system ISR/DPC metrics
                 var dataSystem = new Data(traceMetadata.ProcessorCount);
 
@@ -257,7 +276,7 @@ namespace xtw {
                     ? "Interrupts (ISRs)"
                     : "Deferred Procedure Calls (DPCs)";
 
-                var modules = modulesData[interruptType];
+
 
                 // TABLE: ISR/DPC - Total Elapsed Time (usecs) and Count by CPU
                 reportLines.Add(GetTitle($"{formattedInterruptType} - Total Elapsed Time (usecs) and Count by CPU") + "\n\n");
