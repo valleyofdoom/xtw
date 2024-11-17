@@ -210,8 +210,8 @@ namespace xtw {
                 { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, ModuleData>()}
             };
 
-            foreach (var activity in interruptHandlingData.Activity) {
-                var interval = activity.Interval;
+            for (var i = 0; i < interruptHandlingData.Activity.Count; i++) {
+                var interval = interruptHandlingData.Activity[i].Interval;
                 var module = interval.HandlerImage.FileName;
                 var elapsedTimeUsec = (double)(interval.StopTime.Nanoseconds - interval.StartTime.Nanoseconds) / 1000;
 

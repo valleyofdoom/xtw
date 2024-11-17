@@ -25,13 +25,13 @@ namespace xtw {
                 return 0;
             }
 
-            var standardDeviation = 0.0;
+            var squaredDeviations = 0.0;
 
-            foreach (var executionTimeUs in sortedDataset) {
-                standardDeviation += Math.Pow(executionTimeUs - average, 2);
+            for (var i = 0; i < size; i++) {
+                squaredDeviations += Math.Pow(sortedDataset[i] - average, 2);
             }
 
-            return Math.Sqrt(standardDeviation / (size - 1));
+            return Math.Sqrt(squaredDeviations / (size - 1));
         }
 
         public double Percentile(double value) {
