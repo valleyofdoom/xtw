@@ -263,10 +263,15 @@ namespace xtw {
                 }
             }
 
-            reportLines.Add($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build}\n\n");
+            reportLines.Add(GetTitle($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build}") + "\n");
 
             var traceSeconds = (traceMetadata.StopTime - traceMetadata.StartTime).Seconds;
-            reportLines.Add($"Trace duration: {traceSeconds} second(s)\n\n");
+            reportLines.Add($"OS Version: {traceMetadata.OSVersion}\n");
+            reportLines.Add($"Trace duration: {traceSeconds} second(s)\n");
+            reportLines.Add($"Trace Path: {traceMetadata.TracePath}\n");
+            reportLines.Add($"Lost Buffers: {traceMetadata.LostBufferCount}\n");
+            reportLines.Add($"Lost Events: {traceMetadata.LostEventCount}\n");
+            reportLines.Add("\n\n");
 
             // print metrics
             foreach (var interruptType in modulesData.Keys) {
@@ -290,12 +295,8 @@ namespace xtw {
                 }
 
                 // this will give us the space between module and first column
-                var moduleRightPadding = shortestModuleNameLength + 10;
-
-                if (args.Symbols) {
-                    // account for indent
-                    moduleRightPadding += 4;
-                }
+                // also a symbols check to account for module function indent
+                var moduleRightPadding = shortestModuleNameLength + 10 + (args.Symbols ? 4 : 0);
 
                 var formattedInterruptType =
                     interruptType == InterruptHandlingType.InterruptServiceRoutine
@@ -332,7 +333,7 @@ namespace xtw {
                     }
 
                     var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2} ({totalModuleInterruptCount})" : "-";
-                    reportLines.Add(moduleTotals.PadRight(metricsRightPadding) + "\n");
+                    reportLines.Add(moduleTotals + "\n");
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         var functionData = moduleData.FunctionsData[functionName];
@@ -370,14 +371,16 @@ namespace xtw {
                 }
 
                 var systemTotals = systemData[interruptType].Data.SumCount > 0 ? $"{systemData[interruptType].Data.SumElapsedTimesUs:F2} ({systemData[interruptType].Data.SumCount})" : "-";
-                reportLines.Add(systemTotals.PadRight(metricsRightPadding) + "\n");
+                reportLines.Add(systemTotals + "\n");
 
                 // TABLE: ISR/DPC - Interval (ms)
                 reportLines.Add(GetTitle($"\n\n{formattedInterruptType} - Interval (ms)") + "\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
-                foreach (var metricTableHeading in metricsTableHeadings) {
-                    reportLines.Add(metricTableHeading.PadRight(metricsRightPadding));
+                for (var i = 0; i < metricsTableHeadings.Length; i++) {
+                    // don't add padding to last column
+                    var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
+                    reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
                 }
                 reportLines.Add("\n");
 
@@ -412,7 +415,7 @@ namespace xtw {
                         $"{moduleIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
                         $"{moduleIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                         $"{moduleIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Percentile(99.9):F2}" +
                         $"\n"
                     );
 
@@ -439,7 +442,7 @@ namespace xtw {
                             $"{functionIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
                             $"{functionIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                             $"{functionIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Percentile(99.9):F2}" +
                             $"\n"
                         );
                     }
@@ -453,7 +456,7 @@ namespace xtw {
                     $"{systemIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
                     $"{systemIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                     $"{systemIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Percentile(99.9):F2}" +
                     $"\n\n\n"
                 );
 
@@ -461,8 +464,10 @@ namespace xtw {
                 reportLines.Add(GetTitle($"{formattedInterruptType} - Elapsed Time (usecs)") + "\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
-                foreach (var metricTableHeading in metricsTableHeadings) {
-                    reportLines.Add(metricTableHeading.PadRight(metricsRightPadding));
+                for (var i = 0; i < metricsTableHeadings.Length; i++) {
+                    // don't add padding to last column
+                    var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
+                    reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
                 }
                 reportLines.Add("\n");
 
@@ -477,7 +482,7 @@ namespace xtw {
                         $"{moduleElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
                         $"{moduleElapsedMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                         $"{moduleElapsedMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Percentile(99.9):F2}" +
                         $"\n"
                     );
 
@@ -492,7 +497,7 @@ namespace xtw {
                             $"{functionElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
                             $"{functionElapsedMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                             $"{functionElapsedMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Percentile(99.9):F2}" +
                             $"\n"
                         );
                     }
@@ -506,7 +511,7 @@ namespace xtw {
                     $"{systemMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
                     $"{systemMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                     $"{systemMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Percentile(99.9):F2}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Percentile(99.9):F2}" +
                     $"\n\n"
                 );
 
