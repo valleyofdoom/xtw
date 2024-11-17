@@ -117,6 +117,8 @@ namespace xtw {
             var pendingSymbols = traceProcessor.UseSymbols();
             var pendingInterruptHandlingData = traceProcessor.UseInterruptHandlingData();
 
+            log.Information("loading etl file");
+
             // setup callback for progress tracking
             var currentPass = 0;
 
@@ -209,6 +211,8 @@ namespace xtw {
                 { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, ModuleData>()},
                 { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, ModuleData>()}
             };
+
+            log.Information("parsing raw data");
 
             for (var i = 0; i < interruptHandlingData.Activity.Count; i++) {
                 var interval = interruptHandlingData.Activity[i].Interval;
