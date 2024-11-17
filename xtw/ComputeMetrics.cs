@@ -38,13 +38,16 @@ namespace xtw {
             return size > 0 ? sortedDataset[(int)Math.Ceiling(value / 100 * size) - 1] : 0;
         }
 
-        public ComputeMetrics(List<double> dataset) {
+        public ComputeMetrics(List<double> dataset, double? total = null) {
             sortedDataset = dataset;
             sortedDataset.Sort();
 
+            // for caching purposes
+            var sum = total ?? sortedDataset.Sum();
+
             // cache values
             size = sortedDataset.Count;
-            average = size > 0 ? sortedDataset.Sum() / size : 0;
+            average = size > 0 ? sum / size : 0;
         }
     }
 }

@@ -70,64 +70,18 @@ namespace xtw {
                 return 1;
             }
 
+            // either an etl file or record time must be specified
+            if (args.EtlFile == null && args.Timed == 0) {
+                Console.WriteLine("run xtw --help to see options");
+                return 0;
+            }
+
             if (!args.NoBanner) {
                 ShowBanner();
             }
 
             // cd to directory of program
             Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
-
-            // initialize data dictionary
-
-            /*
-            structure of modulesData:
-
-            {
-                "modules": {
-                    "ISR": {
-                        "module.sys": {
-                            "elapsed_times_us": [],
-                            "elapsedtime_us_by_processor": {
-                                "0": 0,
-                                "1": 0
-                            },
-                            "count_by_processor": {
-                                "0": 0,
-                                "1": 0
-                            },
-                            "start_times_ms": [],
-                            "functions_data": { }
-                        }
-                    },
-                    "DPC": {
-                        "module.sys": {
-                            "elapsed_times_us": [],
-                            "elapsedtime_us_by_processor": {
-                                "0": 0,
-                                "1": 0
-                            },
-                            "count_by_processor": {
-                                "0": 0,
-                                "1": 0
-                            },
-                            "start_times_ms": [],
-                            "functions_data": { }
-                        }
-                    }
-                }
-            }
-             */
-
-            var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, ModuleData>> {
-                { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, ModuleData>()},
-                { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, ModuleData>()}
-            };
-
-            // either an etl file or record time must be specified
-            if (args.EtlFile == null && args.Timed == 0) {
-                Console.WriteLine("run xtw --help to see options");
-                return 0;
-            }
 
             var etlFile = "";
 
@@ -204,6 +158,58 @@ namespace xtw {
             var metricsRightPadding = 20;
             string[] metricsTableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
 
+            // initialize data dictionary
+
+            /*
+            structure of modulesData:
+
+            {
+                "modules": {
+                    "ISR": {
+                        "module.sys": {
+                            "elapsed_times_us": [],
+                            "elapsedtime_us_by_processor": {
+                                "0": 0,
+                                "1": 0
+                            },
+                            "count_by_processor": {
+                                "0": 0,
+                                "1": 0
+                            },
+                            "start_times_ms": [],
+                            "functions_data": { }
+                        }
+                    },
+                    "DPC": {
+                        "module.sys": {
+                            "elapsed_times_us": [],
+                            "elapsedtime_us_by_processor": {
+                                "0": 0,
+                                "1": 0
+                            },
+                            "count_by_processor": {
+                                "0": 0,
+                                "1": 0
+                            },
+                            "start_times_ms": [],
+                            "functions_data": { }
+                        }
+                    }
+                }
+            }
+             */
+
+            // to keep track of overall system ISR/DPC metrics
+            var systemData = new Dictionary<InterruptHandlingType, ModuleData> {
+                { InterruptHandlingType.InterruptServiceRoutine, new ModuleData(traceMetadata.ProcessorCount)},
+                { InterruptHandlingType.DeferredProcedureCall, new ModuleData(traceMetadata.ProcessorCount)}
+            };
+
+            var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, ModuleData>> {
+                { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, ModuleData>()},
+                { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, ModuleData>()}
+            };
+
             foreach (var activity in interruptHandlingData.Activity) {
                 var interval = activity.Interval;
                 var module = interval.HandlerImage.FileName;
@@ -222,8 +228,23 @@ namespace xtw {
 
                 modulesData[interval.Type][module].Data.ElapsedTimesUs.Add(elapsedTimeUsec);
                 modulesData[interval.Type][module].Data.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
+                modulesData[interval.Type][module].Data.SumElapsedTimesUs += elapsedTimeUsec;
+
                 modulesData[interval.Type][module].Data.CountByProcessor[interval.Processor]++;
-                modulesData[interval.Type][module].Data.StartTimesMs.Add(interval.StartTime.Nanoseconds / 1e+6);
+                modulesData[interval.Type][module].Data.SumCount++;
+
+                var startTimeMs = interval.StartTime.Nanoseconds / 1e+6;
+                modulesData[interval.Type][module].Data.StartTimesMs.Add(startTimeMs);
+
+                // keep track of system data and cache everything
+                systemData[interval.Type].Data.ElapsedTimesUs.Add(elapsedTimeUsec);
+                systemData[interval.Type].Data.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
+                systemData[interval.Type].Data.SumElapsedTimesUs += elapsedTimeUsec;
+
+                systemData[interval.Type].Data.CountByProcessor[interval.Processor]++;
+                systemData[interval.Type].Data.SumCount++;
+
+                systemData[interval.Type].Data.StartTimesMs.Add(startTimeMs);
 
                 // populate data for module functions
                 if (functionName != "") {
@@ -233,10 +254,13 @@ namespace xtw {
 
                     modulesData[interval.Type][module].FunctionsData[functionName].ElapsedTimesUs.Add(elapsedTimeUsec);
                     modulesData[interval.Type][module].FunctionsData[functionName].ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
-                    modulesData[interval.Type][module].FunctionsData[functionName].CountByProcessor[interval.Processor]++;
-                    modulesData[interval.Type][module].FunctionsData[functionName].StartTimesMs.Add(interval.StartTime.Nanoseconds / 1e+6);
-                }
+                    modulesData[interval.Type][module].FunctionsData[functionName].SumElapsedTimesUs += elapsedTimeUsec;
 
+                    modulesData[interval.Type][module].FunctionsData[functionName].CountByProcessor[interval.Processor]++;
+                    modulesData[interval.Type][module].FunctionsData[functionName].SumCount++;
+
+                    modulesData[interval.Type][module].FunctionsData[functionName].StartTimesMs.Add(startTimeMs);
+                }
             }
 
             reportLines.Add($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build}\n\n");
@@ -273,15 +297,10 @@ namespace xtw {
                     moduleRightPadding += 4;
                 }
 
-                // to keep track of overall system ISR/DPC metrics
-                var dataSystem = new Data(traceMetadata.ProcessorCount);
-
                 var formattedInterruptType =
                     interruptType == InterruptHandlingType.InterruptServiceRoutine
                     ? "Interrupts (ISRs)"
                     : "Deferred Procedure Calls (DPCs)";
-
-
 
                 // TABLE: ISR/DPC - Total Elapsed Time (usecs) and Count by CPU
                 reportLines.Add(GetTitle($"{formattedInterruptType} - Total Elapsed Time (usecs) and Count by CPU") + "\n\n");
@@ -310,10 +329,6 @@ namespace xtw {
 
                         totalModuleElapsedTime += elapsedTime;
                         totalModuleInterruptCount += count;
-
-                        // keep track of total cpu count for system stats
-                        dataSystem.ElapsedTimeUsByProcessor[processor] += elapsedTime;
-                        dataSystem.CountByProcessor[processor] += count;
                     }
 
                     var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2} ({totalModuleInterruptCount})" : "-";
@@ -344,23 +359,17 @@ namespace xtw {
                 }
 
                 // write system total row
-                var totalSystemElapsedTime = 0.0;
-                var totalSystemCount = 0;
-
                 reportLines.Add($"\n    {"Total".PadRight(moduleRightPadding)}");
 
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                    var elapsedTime = dataSystem.ElapsedTimeUsByProcessor[processor];
-                    var count = dataSystem.CountByProcessor[processor];
+                    var elapsedTime = systemData[interruptType].Data.ElapsedTimeUsByProcessor[processor];
+                    var count = systemData[interruptType].Data.CountByProcessor[processor];
 
                     var processorSystemTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
                     reportLines.Add(processorSystemTotals.PadRight(metricsRightPadding).PadRight(metricsRightPadding));
-
-                    totalSystemElapsedTime += elapsedTime;
-                    totalSystemCount += count;
                 }
 
-                var systemTotals = totalSystemCount > 0 ? $"{totalSystemElapsedTime:F2} ({totalSystemCount})" : "-";
+                var systemTotals = systemData[interruptType].Data.SumCount > 0 ? $"{systemData[interruptType].Data.SumElapsedTimesUs:F2} ({systemData[interruptType].Data.SumCount})" : "-";
                 reportLines.Add(systemTotals.PadRight(metricsRightPadding) + "\n");
 
                 // TABLE: ISR/DPC - Interval (ms)
@@ -373,11 +382,13 @@ namespace xtw {
                 reportLines.Add("\n");
 
                 var systemIntervalsMs = new List<double>();
+                var sumSystemIntervalsMs = 0.0;
 
                 foreach (var moduleName in modules.Keys) {
                     var moduleData = modules[moduleName];
 
                     var moduleIntervalsMs = new List<double>();
+                    var sumModuleIntervalMs = 0.0;
 
                     // sort start times to calculate deltas
                     moduleData.Data.StartTimesMs.Sort();
@@ -385,12 +396,14 @@ namespace xtw {
                     for (var i = 1; i < moduleData.Data.StartTimesMs.Count; i++) {
                         var msBetweenEvents = moduleData.Data.StartTimesMs[i] - moduleData.Data.StartTimesMs[i - 1];
                         moduleIntervalsMs.Add(msBetweenEvents);
+                        sumModuleIntervalMs += msBetweenEvents;
 
                         // keep track of system intervals
                         systemIntervalsMs.Add(msBetweenEvents);
+                        sumSystemIntervalsMs += msBetweenEvents;
                     }
 
-                    var moduleIntervalMetrics = new ComputeMetrics(moduleIntervalsMs);
+                    var moduleIntervalMetrics = new ComputeMetrics(moduleIntervalsMs, sumModuleIntervalMs);
                     reportLines.Add(
                         $"    " +
                         $"{moduleName.PadRight(moduleRightPadding)}" +
@@ -407,6 +420,7 @@ namespace xtw {
                         var functionData = moduleData.FunctionsData[functionName];
 
                         var functionIntervalsMs = new List<double>();
+                        var sumFunctionIntervalsMs = 0.0;
 
                         // sort start times to calculate deltas
                         functionData.StartTimesMs.Sort();
@@ -414,9 +428,10 @@ namespace xtw {
                         for (var i = 1; i < functionData.StartTimesMs.Count; i++) {
                             var msBetweenEvents = functionData.StartTimesMs[i] - functionData.StartTimesMs[i - 1];
                             functionIntervalsMs.Add(msBetweenEvents);
+                            sumFunctionIntervalsMs += msBetweenEvents;
                         }
 
-                        var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs);
+                        var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs, sumFunctionIntervalsMs);
                         reportLines.Add(
                             $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
                             $"{functionIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
@@ -430,7 +445,7 @@ namespace xtw {
                     }
                 }
 
-                var systemIntervalMetrics = new ComputeMetrics(systemIntervalsMs);
+                var systemIntervalMetrics = new ComputeMetrics(systemIntervalsMs, sumSystemIntervalsMs);
                 reportLines.Add(
                     $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
                     $"{systemIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
@@ -442,7 +457,7 @@ namespace xtw {
                     $"\n\n\n"
                 );
 
-                // TABLE: ISR/DPC - - Elapsed Time (usecs)
+                // TABLE: ISR/DPC - Elapsed Time (usecs)
                 reportLines.Add(GetTitle($"{formattedInterruptType} - Elapsed Time (usecs)") + "\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
@@ -454,7 +469,7 @@ namespace xtw {
                 foreach (var moduleName in modules.Keys) {
                     var moduleData = modules[moduleName];
 
-                    var moduleElapsedMetrics = new ComputeMetrics(moduleData.Data.ElapsedTimesUs);
+                    var moduleElapsedMetrics = new ComputeMetrics(moduleData.Data.ElapsedTimesUs, moduleData.Data.SumElapsedTimesUs);
                     reportLines.Add(
                         $"    {moduleName.PadRight(moduleRightPadding)}" +
                         $"{moduleElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
@@ -469,7 +484,7 @@ namespace xtw {
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         var functionData = moduleData.FunctionsData[functionName];
 
-                        var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs);
+                        var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs, functionData.SumElapsedTimesUs);
                         reportLines.Add(
                             $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
                             $"{functionElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
@@ -481,12 +496,9 @@ namespace xtw {
                             $"\n"
                         );
                     }
-
-                    // keep track of all elapsed times for system stats
-                    dataSystem.ElapsedTimesUs.AddRange(moduleData.Data.ElapsedTimesUs);
                 }
 
-                var systemMetrics = new ComputeMetrics(dataSystem.ElapsedTimesUs);
+                var systemMetrics = new ComputeMetrics(systemData[interruptType].Data.ElapsedTimesUs, systemData[interruptType].Data.SumElapsedTimesUs);
                 reportLines.Add(
                     $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
                     $"{systemMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
