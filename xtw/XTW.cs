@@ -302,13 +302,10 @@ namespace xtw {
                 // also a symbols check to account for module function indent
                 var moduleRightPadding = shortestModuleNameLength + 10 + (args.Symbols ? 4 : 0);
 
-                var formattedInterruptType =
-                    interruptType == InterruptHandlingType.InterruptServiceRoutine
-                    ? "Interrupts (ISRs)"
-                    : "Deferred Procedure Calls (DPCs)";
+                var formattedInterruptType = interruptType == InterruptHandlingType.InterruptServiceRoutine ? "ISRs" : "DPCs";
 
-                // TABLE: ISR/DPC - Total Elapsed Time (usecs) and Count by CPU
-                reportLines.Add(GetTitle($"{formattedInterruptType} - Total Elapsed Time (usecs) and Count by CPU") + "\n\n");
+                // TABLE: ISR/DPC - Total Elapsed Time by CPU (usecs and count)
+                reportLines.Add(GetTitle($"{formattedInterruptType} - Total Elapsed Time by CPU (usecs and count)") + "\n\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
@@ -378,7 +375,7 @@ namespace xtw {
                 reportLines.Add(systemTotals + "\n");
 
                 // TABLE: ISR/DPC - Interval (ms)
-                reportLines.Add(GetTitle($"\n\n{formattedInterruptType} - Interval (ms)") + "\n");
+                reportLines.Add(GetTitle($"\n\n{formattedInterruptType} - Interval (ms)") + "\n\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
