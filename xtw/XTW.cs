@@ -307,7 +307,7 @@ namespace xtw {
                 moduleRightPadding = shortestModuleNameLength + 10 + (args.Symbols ? 4 : 0);
             }
 
-            // TABLE: ISR/DPC - Total Elapsed Time by CPU (usecs and count)
+            // TABLE
             foreach (var interruptType in modulesData.Keys) {
                 var modules = modulesData[interruptType];
 
@@ -383,7 +383,7 @@ namespace xtw {
 
             reportLines.Add("\n\n"); // space between sections
 
-            // TABLE: ISR/DPC - Interval (ms)
+            // TABLE
             foreach (var interruptType in modulesData.Keys) {
                 var modules = modulesData[interruptType];
                 reportLines.Add(GetTitle($"{GetFormattedInterruptType(interruptType)} Interval (ms)") + "\n\n");
@@ -475,7 +475,7 @@ namespace xtw {
 
             reportLines.Add("\n\n"); // space between sections
 
-            // TABLE: ISR/DPC - Elapsed Time (usecs)
+            // TABLE
             foreach (var interruptType in modulesData.Keys) {
                 var modules = modulesData[interruptType];
 
