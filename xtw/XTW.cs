@@ -47,6 +47,10 @@ namespace xtw {
             }
         }
 
+        private static string GetFormattedInterruptType(InterruptHandlingType interryptHandlingType) {
+            return interryptHandlingType == InterruptHandlingType.InterruptServiceRoutine ? "ISR" : "DPC";
+        }
+
         public static async Task<int> Main() {
             // create logger
             var log = new LoggerConfiguration()
@@ -275,13 +279,13 @@ namespace xtw {
             reportLines.Add($"Trace Path: {traceMetadata.TracePath}\n");
             reportLines.Add($"Lost Buffers: {traceMetadata.LostBufferCount}\n");
             reportLines.Add($"Lost Events: {traceMetadata.LostEventCount}\n");
-            reportLines.Add("\n\n");
+            reportLines.Add("\n\n\n");
 
-            // print metrics
+            var moduleRightPadding = 0;
+
+            // get shortest right padding for module/symbol names
             foreach (var interruptType in modulesData.Keys) {
                 var modules = modulesData[interruptType];
-
-                // get shortest right padding for module/symbol names
                 var shortestModuleNameLength = 0;
 
                 foreach (var moduleName in modules.Keys) {
@@ -300,12 +304,14 @@ namespace xtw {
 
                 // this will give us the space between module and first column
                 // also a symbols check to account for module function indent
-                var moduleRightPadding = shortestModuleNameLength + 10 + (args.Symbols ? 4 : 0);
+                moduleRightPadding = shortestModuleNameLength + 10 + (args.Symbols ? 4 : 0);
+            }
 
-                var formattedInterruptType = interruptType == InterruptHandlingType.InterruptServiceRoutine ? "ISRs" : "DPCs";
+            // TABLE: ISR/DPC - Total Elapsed Time by CPU (usecs and count)
+            foreach (var interruptType in modulesData.Keys) {
+                var modules = modulesData[interruptType];
 
-                // TABLE: ISR/DPC - Total Elapsed Time by CPU (usecs and count)
-                reportLines.Add(GetTitle($"{formattedInterruptType} - Total Elapsed Time by CPU (usecs and count)") + "\n\n");
+                reportLines.Add(GetTitle($"Total {GetFormattedInterruptType(interruptType)} Usage by CPU (usecs and count)") + "\n\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
@@ -372,10 +378,15 @@ namespace xtw {
                 }
 
                 var systemTotals = systemData[interruptType].Data.SumCount > 0 ? $"{systemData[interruptType].Data.SumElapsedTimesUs:F2} ({systemData[interruptType].Data.SumCount})" : "-";
-                reportLines.Add(systemTotals + "\n");
+                reportLines.Add(systemTotals + "\n\n");
+            }
 
-                // TABLE: ISR/DPC - Interval (ms)
-                reportLines.Add(GetTitle($"\n\n{formattedInterruptType} - Interval (ms)") + "\n\n");
+            reportLines.Add("\n\n"); // space between sections
+
+            // TABLE: ISR/DPC - Interval (ms)
+            foreach (var interruptType in modulesData.Keys) {
+                var modules = modulesData[interruptType];
+                reportLines.Add(GetTitle($"{GetFormattedInterruptType(interruptType)} Interval (ms)") + "\n\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
@@ -458,11 +469,17 @@ namespace xtw {
                     $"{systemIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
                     $"{systemIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
                     $"{systemIntervalMetrics.Percentile(99.9):F2}" +
-                    $"\n\n\n"
+                    $"\n\n"
                 );
+            }
 
-                // TABLE: ISR/DPC - Elapsed Time (usecs)
-                reportLines.Add(GetTitle($"{formattedInterruptType} - Elapsed Time (usecs)") + "\n");
+            reportLines.Add("\n\n"); // space between sections
+
+            // TABLE: ISR/DPC - Elapsed Time (usecs)
+            foreach (var interruptType in modulesData.Keys) {
+                var modules = modulesData[interruptType];
+
+                reportLines.Add(GetTitle($"{GetFormattedInterruptType(interruptType)} Elapsed Times (usecs)") + "\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
@@ -515,8 +532,6 @@ namespace xtw {
                     $"{systemMetrics.Percentile(99.9):F2}" +
                     $"\n\n"
                 );
-
-                reportLines.Add("\n");
             }
 
             var outputFile = args.OutputFile ?? "xtw-report.txt";
