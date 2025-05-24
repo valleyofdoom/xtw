@@ -18,6 +18,7 @@ using System.Threading;
 namespace xtw {
     internal class XTW {
         private static Version VERSION = Assembly.GetExecutingAssembly().GetName().Version;
+        private static string BRANCH = "    └───";
 
         private static void ShowBanner() {
             Console.WriteLine($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build} - GPLv3\nGitHub - https://github.com/valleyofdoom\n");
@@ -348,7 +349,7 @@ namespace xtw {
                         var totalFunctionElapsedTime = 0.0;
                         var totalFunctionCount = 0;
 
-                        reportLines.Add($"        └───{functionName.PadRight(moduleRightPadding - 8)}"); // -8 due to the table-wide indent and branch
+                        reportLines.Add($"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}");
 
                         for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
                             var elapsedTime = functionData.ElapsedTimeUsByProcessor[processor];
@@ -448,7 +449,7 @@ namespace xtw {
 
                         var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs, sumFunctionIntervalsMs);
                         reportLines.Add(
-                            $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
+                            $"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}" +
                             $"{functionIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
                             $"{functionIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
                             $"{functionIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
@@ -509,7 +510,7 @@ namespace xtw {
 
                         var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs, functionData.SumElapsedTimesUs);
                         reportLines.Add(
-                            $"        └───{functionName.PadRight(moduleRightPadding - 8)}" + // -8 due to the table-wide indent and branch
+                            $"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}" +
                             $"{functionElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
                             $"{functionElapsedMetrics.Average():F2}".PadRight(metricsRightPadding) +
                             $"{functionElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
