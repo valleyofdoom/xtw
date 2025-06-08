@@ -8,7 +8,7 @@ if not %errorlevel%  == 0 (
     exit /b 1
 )
 
-start notepad xtw-report.txt
+start /max notepad xtw-report.txt
 
 pause
 exit /b 0
