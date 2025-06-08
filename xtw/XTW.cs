@@ -611,11 +611,6 @@ namespace xtw {
                             var animationError = double.Parse(record.AnimationError);
                             presentmonData[record.Application].AnimationError.Add(animationError);
                         }
-
-                        if (record.AnimationTime != "NA") {
-                            var animationTime = double.Parse(record.AnimationTime);
-                            presentmonData[record.Application].AnimationTime.Add(animationTime);
-                        }
                     }
                 }
             }
@@ -717,18 +712,6 @@ namespace xtw {
                     $"{animationErrorMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
-
-                var animationTimeMetrics = new ComputeMetrics(processData.AnimationTime, processData.AnimationTime.Sum);
-                reportLines.Add(
-                    $"    {"Animation Time",-20}" +
-                    $"{animationTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{animationTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{animationTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{animationTimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{animationTimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{animationTimeMetrics.Percentile(99.9):F3}" +
                     $"\n"
                 );
 

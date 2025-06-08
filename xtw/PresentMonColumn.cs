@@ -9,6 +9,5 @@
         public double GPUWait { get; set; }
         public string DisplayedTime { get; set; }
         public string AnimationError { get; set; }
-        public string AnimationTime { get; set; }
     }
 }
