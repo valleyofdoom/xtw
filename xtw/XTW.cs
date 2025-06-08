@@ -93,20 +93,27 @@ namespace xtw {
             if (args.EtlFile != null) {
                 etlFile = args.EtlFile;
             } else {
-                Thread.Sleep(args.Delay * 1000); // 0 if not specified
-                log.Information($"collecting trace for {args.Timed}s");
-                StartTrace(args.Timed, "xtw", "xtw_raw.etl");
+                etlFile = "xtw.etl";
 
+                Thread.Sleep(args.Delay * 1000); // 0 if not specified
+
+                log.Information($"collecting trace for {args.Timed}s");
+                StartTrace(args.Timed, "xtw", etlFile);
+            }
+
+            if (args.Symbols) {
                 // add required symbols metadata
                 // https://stackoverflow.com/questions/65351589/windows-performance-analyzer-cannot-load-symbols/65532497#65532497
 
-                var mergeETLs = new string[] { "xtw_raw.etl" };
-                ETWKernelControl.Merge(mergeETLs, "xtw.etl", EVENT_TRACE_MERGE_EXTENDED_DATA.IMAGEID);
+                log.Information("adding symbols metadata");
+                var mergeETLs = new string[] { etlFile };
+                var mergedETL = "xtw-merged.etl";
+                ETWKernelControl.Merge(mergeETLs, mergedETL, EVENT_TRACE_MERGE_EXTENDED_DATA.IMAGEID);
 
                 // remove trace without metadata
-                File.Delete("xtw_raw.etl");
-
-                etlFile = "xtw.etl";
+                File.Delete(etlFile);
+                // rename merged file to the original name
+                File.Move(mergedETL, etlFile);
             }
 
             if (!File.Exists(etlFile)) {
