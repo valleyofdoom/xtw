@@ -1,17 +1,16 @@
 ﻿using System.Collections.Generic;
 
 namespace xtw {
-    public class Data {
-        public List<double> ElapsedTimesUs = new List<double>();
+    public class DpcIsrData {
+        public CachedSumList ElapsedTimesUs = new CachedSumList();
         public Dictionary<int, double> ElapsedTimeUsByProcessor = new Dictionary<int, double>();
-        public double SumElapsedTimesUs = 0;
 
         public Dictionary<int, int> CountByProcessor = new Dictionary<int, int>();
         public double SumCount = 0;
 
         public List<double> StartTimesMs = new List<double>();
 
-        public Data(int processorCount) {
+        public DpcIsrData(int processorCount) {
             // populate CPUs
             for (var processor = 0; processor < processorCount; processor++) {
                 ElapsedTimeUsByProcessor.Add(processor, 0);

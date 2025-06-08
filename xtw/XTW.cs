@@ -14,6 +14,9 @@ using Microsoft.Windows.EventTracing.Symbols;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.Tracing.Session;
 using System.Threading;
+using CsvHelper;
+using System.Globalization;
+using System.Diagnostics;
 
 namespace xtw {
     internal class XTW {
@@ -41,8 +44,24 @@ namespace xtw {
                 ets.EnableKernelProvider(
                     KernelTraceEventParser.Keywords.Interrupt |
                     KernelTraceEventParser.Keywords.DeferedProcedureCalls |
-                    KernelTraceEventParser.Keywords.ImageLoad
+                    KernelTraceEventParser.Keywords.ImageLoad |
+                    KernelTraceEventParser.Keywords.Process |
+                    KernelTraceEventParser.Keywords.Thread |
+                    KernelTraceEventParser.Keywords.ContextSwitch |
+                    KernelTraceEventParser.Keywords.Dispatcher
                 );
+
+                // https://github.com/GameTechDev/PresentMon/blob/main/Tools/etl_collection_timed.cmd
+
+                ets.EnableProvider("Microsoft-Windows-DxgKrnl");
+                ets.EnableProvider("Microsoft-Windows-D3D9");
+                ets.EnableProvider("Microsoft-Windows-DXGI");
+                ets.EnableProvider("Microsoft-Windows-Dwm-Core");
+                ets.EnableProvider(Guid.Parse("8c9dd1ad-e6e5-4b07-b455-684a9d879900")); // dwm_win7
+                ets.EnableProvider("Microsoft-Windows-Win32k");
+
+                ets.CaptureState(Guid.Parse("{802EC45A-1E99-4B83-9920-87C98277BA9D}")); // Microsoft-Windows-DxgKrnl
+                ets.CaptureState(Guid.Parse("{CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}")); // Microsoft-Windows-DXGI
 
                 Thread.Sleep(loggingSeconds * 1000);
             }
@@ -121,6 +140,23 @@ namespace xtw {
                 return 1;
             }
 
+            // get presentmon data
+            var csvFile = "xtw.csv";
+
+            var presentmonProcess = Process.Start(new ProcessStartInfo {
+                FileName = "PresentMon.exe",
+                Arguments = $"--etl_file {etlFile} --output_file {csvFile}",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            presentmonProcess.WaitForExit();
+
+            if (!File.Exists(csvFile)) {
+                log.Error($"presentmon csv error: {etlFile} not exists");
+                return 1;
+            }
+
             // load the etl
             var traceProcessor = TraceProcessor.Create(etlFile);
 
@@ -157,7 +193,7 @@ namespace xtw {
                 var symbolsProgressCallback = new Progress<SymbolLoadingProgress>(progress => {
                     var percentage = (double)progress.ImagesProcessed / progress.ImagesTotal * 100;
 
-                    log.Information($"loading symbols {percentage:F2}% ({progress.ImagesProcessed}/{progress.ImagesTotal})");
+                    log.Information($"loading symbols {percentage:F3}% ({progress.ImagesProcessed}/{progress.ImagesTotal})");
                 });
 
                 await symbols.LoadSymbolsAsync(SymCachePath.Automatic, SymbolPath.Automatic, symbolsProgressCallback);
@@ -214,14 +250,14 @@ namespace xtw {
              */
 
             // to keep track of overall system ISR/DPC metrics
-            var systemData = new Dictionary<InterruptHandlingType, ModuleData> {
-                { InterruptHandlingType.InterruptServiceRoutine, new ModuleData(traceMetadata.ProcessorCount)},
-                { InterruptHandlingType.DeferredProcedureCall, new ModuleData(traceMetadata.ProcessorCount)}
+            var systemData = new Dictionary<InterruptHandlingType, Module> {
+                { InterruptHandlingType.InterruptServiceRoutine, new Module(traceMetadata.ProcessorCount)},
+                { InterruptHandlingType.DeferredProcedureCall, new Module(traceMetadata.ProcessorCount)}
             };
 
-            var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, ModuleData>> {
-                { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, ModuleData>()},
-                { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, ModuleData>()}
+            var modulesData = new Dictionary<InterruptHandlingType, Dictionary<string, Module>> {
+                { InterruptHandlingType.InterruptServiceRoutine, new Dictionary<string, Module>()},
+                { InterruptHandlingType.DeferredProcedureCall, new Dictionary<string, Module>()}
             };
 
             log.Information("parsing raw data");
@@ -239,38 +275,35 @@ namespace xtw {
 
                 // populate data for module
                 if (!modulesData[interval.Type].ContainsKey(module)) {
-                    modulesData[interval.Type][module] = new ModuleData(traceMetadata.ProcessorCount);
+                    modulesData[interval.Type][module] = new Module(traceMetadata.ProcessorCount);
                 }
 
-                modulesData[interval.Type][module].Data.ElapsedTimesUs.Add(elapsedTimeUsec);
-                modulesData[interval.Type][module].Data.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
-                modulesData[interval.Type][module].Data.SumElapsedTimesUs += elapsedTimeUsec;
+                modulesData[interval.Type][module].DpcIsrData.ElapsedTimesUs.Add(elapsedTimeUsec);
+                modulesData[interval.Type][module].DpcIsrData.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
 
-                modulesData[interval.Type][module].Data.CountByProcessor[interval.Processor]++;
-                modulesData[interval.Type][module].Data.SumCount++;
+                modulesData[interval.Type][module].DpcIsrData.CountByProcessor[interval.Processor]++;
+                modulesData[interval.Type][module].DpcIsrData.SumCount++;
 
                 var startTimeMs = interval.StartTime.Nanoseconds / 1e+6;
-                modulesData[interval.Type][module].Data.StartTimesMs.Add(startTimeMs);
+                modulesData[interval.Type][module].DpcIsrData.StartTimesMs.Add(startTimeMs);
 
                 // keep track of system data and cache everything
-                systemData[interval.Type].Data.ElapsedTimesUs.Add(elapsedTimeUsec);
-                systemData[interval.Type].Data.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
-                systemData[interval.Type].Data.SumElapsedTimesUs += elapsedTimeUsec;
+                systemData[interval.Type].DpcIsrData.ElapsedTimesUs.Add(elapsedTimeUsec);
+                systemData[interval.Type].DpcIsrData.ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
 
-                systemData[interval.Type].Data.CountByProcessor[interval.Processor]++;
-                systemData[interval.Type].Data.SumCount++;
+                systemData[interval.Type].DpcIsrData.CountByProcessor[interval.Processor]++;
+                systemData[interval.Type].DpcIsrData.SumCount++;
 
-                systemData[interval.Type].Data.StartTimesMs.Add(startTimeMs);
+                systemData[interval.Type].DpcIsrData.StartTimesMs.Add(startTimeMs);
 
                 // populate data for module functions
                 if (functionName != "") {
                     if (!modulesData[interval.Type][module].FunctionsData.ContainsKey(functionName)) {
-                        modulesData[interval.Type][module].FunctionsData[functionName] = new Data(traceMetadata.ProcessorCount);
+                        modulesData[interval.Type][module].FunctionsData[functionName] = new DpcIsrData(traceMetadata.ProcessorCount);
                     }
 
                     modulesData[interval.Type][module].FunctionsData[functionName].ElapsedTimesUs.Add(elapsedTimeUsec);
                     modulesData[interval.Type][module].FunctionsData[functionName].ElapsedTimeUsByProcessor[interval.Processor] += elapsedTimeUsec;
-                    modulesData[interval.Type][module].FunctionsData[functionName].SumElapsedTimesUs += elapsedTimeUsec;
 
                     modulesData[interval.Type][module].FunctionsData[functionName].CountByProcessor[interval.Processor]++;
                     modulesData[interval.Type][module].FunctionsData[functionName].SumCount++;
@@ -337,17 +370,17 @@ namespace xtw {
                     reportLines.Add($"    {moduleName.PadRight(moduleRightPadding)}");
 
                     for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                        var elapsedTime = moduleData.Data.ElapsedTimeUsByProcessor[processor];
-                        var count = moduleData.Data.CountByProcessor[processor];
+                        var elapsedTime = moduleData.DpcIsrData.ElapsedTimeUsByProcessor[processor];
+                        var count = moduleData.DpcIsrData.CountByProcessor[processor];
 
-                        var processorModuleTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
+                        var processorModuleTotals = count > 0 ? $"{elapsedTime:F3} ({count})" : "-";
                         reportLines.Add(processorModuleTotals.PadRight(metricsRightPadding));
 
                         totalModuleElapsedTime += elapsedTime;
                         totalModuleInterruptCount += count;
                     }
 
-                    var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F2} ({totalModuleInterruptCount})" : "-";
+                    var moduleTotals = totalModuleInterruptCount > 0 ? $"{totalModuleElapsedTime:F3} ({totalModuleInterruptCount})" : "-";
                     reportLines.Add(moduleTotals + "\n");
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
@@ -362,14 +395,14 @@ namespace xtw {
                             var elapsedTime = functionData.ElapsedTimeUsByProcessor[processor];
                             var count = functionData.CountByProcessor[processor];
 
-                            var processorFunctionTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
+                            var processorFunctionTotals = count > 0 ? $"{elapsedTime:F3} ({count})" : "-";
                             reportLines.Add(processorFunctionTotals.PadRight(metricsRightPadding));
 
                             totalFunctionElapsedTime += elapsedTime;
                             totalFunctionCount += count;
                         }
 
-                        var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F2} ({totalFunctionCount})" : "-";
+                        var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F3} ({totalFunctionCount})" : "-";
                         reportLines.Add($"{functionTotals.PadRight(metricsRightPadding)}\n");
                     }
                 }
@@ -378,14 +411,14 @@ namespace xtw {
                 reportLines.Add($"\n    {"Total".PadRight(moduleRightPadding)}");
 
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                    var elapsedTime = systemData[interruptType].Data.ElapsedTimeUsByProcessor[processor];
-                    var count = systemData[interruptType].Data.CountByProcessor[processor];
+                    var elapsedTime = systemData[interruptType].DpcIsrData.ElapsedTimeUsByProcessor[processor];
+                    var count = systemData[interruptType].DpcIsrData.CountByProcessor[processor];
 
-                    var processorSystemTotals = count > 0 ? $"{elapsedTime:F2} ({count})" : "-";
+                    var processorSystemTotals = count > 0 ? $"{elapsedTime:F3} ({count})" : "-";
                     reportLines.Add(processorSystemTotals.PadRight(metricsRightPadding).PadRight(metricsRightPadding));
                 }
 
-                var systemTotals = systemData[interruptType].Data.SumCount > 0 ? $"{systemData[interruptType].Data.SumElapsedTimesUs:F2} ({systemData[interruptType].Data.SumCount})" : "-";
+                var systemTotals = systemData[interruptType].DpcIsrData.SumCount > 0 ? $"{systemData[interruptType].DpcIsrData.ElapsedTimesUs.Sum:F3} ({systemData[interruptType].DpcIsrData.SumCount})" : "-";
                 reportLines.Add(systemTotals + "\n\n");
             }
 
@@ -414,10 +447,10 @@ namespace xtw {
                     var sumModuleIntervalMs = 0.0;
 
                     // sort start times to calculate deltas
-                    moduleData.Data.StartTimesMs.Sort();
+                    moduleData.DpcIsrData.StartTimesMs.Sort();
 
-                    for (var i = 1; i < moduleData.Data.StartTimesMs.Count; i++) {
-                        var msBetweenEvents = moduleData.Data.StartTimesMs[i] - moduleData.Data.StartTimesMs[i - 1];
+                    for (var i = 1; i < moduleData.DpcIsrData.StartTimesMs.Count; i++) {
+                        var msBetweenEvents = moduleData.DpcIsrData.StartTimesMs[i] - moduleData.DpcIsrData.StartTimesMs[i - 1];
                         moduleIntervalsMs.Add(msBetweenEvents);
                         sumModuleIntervalMs += msBetweenEvents;
 
@@ -430,12 +463,12 @@ namespace xtw {
                     reportLines.Add(
                         $"    " +
                         $"{moduleName.PadRight(moduleRightPadding)}" +
-                        $"{moduleIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Percentile(99.9):F2}" +
+                        $"{moduleIntervalMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                        $"{moduleIntervalMetrics.Percentile(99.9):F3}" +
                         $"\n"
                     );
 
@@ -457,12 +490,12 @@ namespace xtw {
                         var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs, sumFunctionIntervalsMs);
                         reportLines.Add(
                             $"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}" +
-                            $"{functionIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Percentile(99.9):F2}" +
+                            $"{functionIntervalMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                            $"{functionIntervalMetrics.Percentile(99.9):F3}" +
                             $"\n"
                         );
                     }
@@ -471,12 +504,12 @@ namespace xtw {
                 var systemIntervalMetrics = new ComputeMetrics(systemIntervalsMs, sumSystemIntervalsMs);
                 reportLines.Add(
                     $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
-                    $"{systemIntervalMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Average():F2}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Percentile(99.9):F2}" +
+                    $"{systemIntervalMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{systemIntervalMetrics.Percentile(99.9):F3}" +
                     $"\n\n"
                 );
             }
@@ -487,7 +520,7 @@ namespace xtw {
             foreach (var interruptType in modulesData.Keys) {
                 var modules = modulesData[interruptType];
 
-                reportLines.Add(GetTitle($"{GetFormattedInterruptType(interruptType)} Elapsed Times (usecs)") + "\n");
+                reportLines.Add(GetTitle($"{GetFormattedInterruptType(interruptType)} Elapsed Times (usecs)") + "\n\n");
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
@@ -500,48 +533,209 @@ namespace xtw {
                 foreach (var moduleName in modules.Keys) {
                     var moduleData = modules[moduleName];
 
-                    var moduleElapsedMetrics = new ComputeMetrics(moduleData.Data.ElapsedTimesUs, moduleData.Data.SumElapsedTimesUs);
+                    var moduleElapsedMetrics = new ComputeMetrics(moduleData.DpcIsrData.ElapsedTimesUs, moduleData.DpcIsrData.ElapsedTimesUs.Sum);
                     reportLines.Add(
                         $"    {moduleName.PadRight(moduleRightPadding)}" +
-                        $"{moduleElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Average():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Percentile(99.9):F2}" +
+                        $"{moduleElapsedMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                        $"{moduleElapsedMetrics.Percentile(99.9):F3}" +
                         $"\n"
                     );
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         var functionData = moduleData.FunctionsData[functionName];
 
-                        var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs, functionData.SumElapsedTimesUs);
+                        var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs, functionData.ElapsedTimesUs.Sum);
                         reportLines.Add(
                             $"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}" +
-                            $"{functionElapsedMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Average():F2}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Percentile(99.9):F2}" +
+                            $"{functionElapsedMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                            $"{functionElapsedMetrics.Percentile(99.9):F3}" +
                             $"\n"
                         );
                     }
                 }
 
-                var systemMetrics = new ComputeMetrics(systemData[interruptType].Data.ElapsedTimesUs, systemData[interruptType].Data.SumElapsedTimesUs);
+                var systemMetrics = new ComputeMetrics(systemData[interruptType].DpcIsrData.ElapsedTimesUs, systemData[interruptType].DpcIsrData.ElapsedTimesUs.Sum);
                 reportLines.Add(
                     $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
-                    $"{systemMetrics.Maximum():F2}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Average():F2}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Minimum():F2}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.StandardDeviation():F2}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Percentile(99):F2}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Percentile(99.9):F2}" +
+                    $"{systemMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{systemMetrics.Percentile(99.9):F3}" +
                     $"\n\n"
                 );
             }
 
+            reportLines.Add("\n\n"); // space between sections
+
+            // TABLE
+            var presentmonData = new Dictionary<string, PresentMonData>();
+
+            using (var reader = new StreamReader(csvFile)) {
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture)) {
+                    var records = csv.GetRecords<PresentMonColumn>();
+                    foreach (var record in records) {
+
+                        // create entry for process if it doesn't exist
+                        if (!presentmonData.ContainsKey(record.Application)) {
+                            presentmonData[record.Application] = new PresentMonData();
+                        }
+
+                        presentmonData[record.Application].PresentRuntime.Add(record.PresentRuntime);
+                        presentmonData[record.Application].PresentModes.Add(record.PresentMode);
+
+                        var frameTime = record.CPUBusy + record.CPUWait + record.GPUBusy + record.GPUWait;
+                        presentmonData[record.Application].FrameTimes.Add(frameTime);
+
+                        presentmonData[record.Application].CPUBusy.Add(record.CPUBusy);
+                        presentmonData[record.Application].CPUWait.Add(record.CPUWait);
+
+                        presentmonData[record.Application].GPUBusy.Add(record.GPUBusy);
+                        presentmonData[record.Application].GPUWait.Add(record.GPUWait);
+
+                        if (record.DisplayedTime != "NA") {
+                            var displayedTime = double.Parse(record.DisplayedTime);
+                            presentmonData[record.Application].DisplayedTime.Add(displayedTime);
+                        }
+
+                        if (record.AnimationError != "NA") {
+                            var animationError = double.Parse(record.AnimationError);
+                            presentmonData[record.Application].AnimationError.Add(animationError);
+                        }
+
+                        if (record.AnimationTime != "NA") {
+                            var animationTime = double.Parse(record.AnimationTime);
+                            presentmonData[record.Application].AnimationTime.Add(animationTime);
+                        }
+                    }
+                }
+            }
+
+            foreach (var processName in presentmonData.Keys) {
+                reportLines.Add(GetTitle($"PresentMon - {processName}") + "\n\n");
+
+                var processData = presentmonData[processName];
+
+                reportLines.Add($"    Runtime: {string.Join(", ", processData.PresentRuntime)}\n");
+                reportLines.Add($"    Present Mode: {string.Join(", ", processData.PresentModes)}\n\n");
+
+                reportLines.Add($"    {"Metric",-20}");
+                for (var i = 0; i < metricsTableHeadings.Length; i++) {
+                    // don't add padding to last column
+                    var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
+                    reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
+                }
+                reportLines.Add("\n");
+
+                var frametimeMetrics = new ComputeMetrics(processData.FrameTimes, processData.FrameTimes.Sum);
+                reportLines.Add(
+                    $"    {"FrameTime",-20}" +
+                    $"{frametimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{frametimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{frametimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{frametimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{frametimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{frametimeMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var cpuBusyMetrics = new ComputeMetrics(processData.CPUBusy, processData.CPUBusy.Sum);
+                reportLines.Add(
+                    $"    {"CPU Busy",-20}" +
+                    $"{cpuBusyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuBusyMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuBusyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuBusyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuBusyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{cpuBusyMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var cpuWaitMetrics = new ComputeMetrics(processData.CPUWait, processData.CPUWait.Sum);
+                reportLines.Add(
+                    $"    {"CPU Wait",-20}" +
+                    $"{cpuWaitMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuWaitMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuWaitMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuWaitMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{cpuWaitMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{cpuWaitMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var gpuBusyMetrics = new ComputeMetrics(processData.GPUBusy, processData.GPUBusy.Sum);
+                reportLines.Add(
+                    $"    {"GPU Busy",-20}" +
+                    $"{gpuBusyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuBusyMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuBusyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuBusyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuBusyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{gpuBusyMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var gpuWaitMetrics = new ComputeMetrics(processData.GPUWait, processData.GPUWait.Sum);
+                reportLines.Add(
+                    $"    {"GPU Wait",-20}" +
+                    $"{gpuWaitMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuWaitMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuWaitMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuWaitMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuWaitMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{gpuWaitMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var displayedTimeMetrics = new ComputeMetrics(processData.DisplayedTime, processData.DisplayedTime.Sum);
+                reportLines.Add(
+                    $"    {"Displayed Time",-20}" +
+                    $"{displayedTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{displayedTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{displayedTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{displayedTimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{displayedTimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{displayedTimeMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var animationErrorMetrics = new ComputeMetrics(processData.AnimationError, processData.AnimationError.Sum);
+                reportLines.Add(
+                    $"    {"Animation Error",-20}" +
+                    $"{animationErrorMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{animationErrorMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{animationErrorMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{animationErrorMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{animationErrorMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{animationErrorMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var animationTimeMetrics = new ComputeMetrics(processData.AnimationTime, processData.AnimationTime.Sum);
+                reportLines.Add(
+                    $"    {"Animation Time",-20}" +
+                    $"{animationTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{animationTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{animationTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{animationTimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{animationTimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{animationTimeMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                reportLines.Add("\n");
+            }
+
+            // write output file
             var outputFile = args.OutputFile ?? "xtw-report.txt";
 
             using (var writer = new StreamWriter(outputFile)) {

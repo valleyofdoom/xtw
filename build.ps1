@@ -24,6 +24,7 @@ function main() {
     # create final package
     Copy-Item ".\xtw\bin\x64\Release\*" ".\build\xtw\" -Recurse
     Copy-Item ".\xtw_etl_collection.bat" ".\build\xtw\"
+    Copy-Item ".\PresentMon.exe" ".\build\xtw\"
 
     return 0
 }
