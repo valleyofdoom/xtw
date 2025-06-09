@@ -44,24 +44,24 @@ namespace xtw {
                 ets.EnableKernelProvider(
                     KernelTraceEventParser.Keywords.Interrupt |
                     KernelTraceEventParser.Keywords.DeferedProcedureCalls |
-                    KernelTraceEventParser.Keywords.ImageLoad |
-                    KernelTraceEventParser.Keywords.Process |
-                    KernelTraceEventParser.Keywords.Thread |
-                    KernelTraceEventParser.Keywords.ContextSwitch |
-                    KernelTraceEventParser.Keywords.Dispatcher
+                    KernelTraceEventParser.Keywords.ImageLoad
+                    //KernelTraceEventParser.Keywords.Process |
+                    //KernelTraceEventParser.Keywords.Thread |
+                    //KernelTraceEventParser.Keywords.ContextSwitch |
+                    //KernelTraceEventParser.Keywords.Dispatcher
                 );
 
                 // https://github.com/GameTechDev/PresentMon/blob/main/Tools/etl_collection_timed.cmd
 
                 ets.EnableProvider("Microsoft-Windows-DxgKrnl");
-                ets.EnableProvider("Microsoft-Windows-D3D9");
+                //ets.EnableProvider("Microsoft-Windows-D3D9");
                 ets.EnableProvider("Microsoft-Windows-DXGI");
-                ets.EnableProvider("Microsoft-Windows-Dwm-Core");
-                ets.EnableProvider(Guid.Parse("8c9dd1ad-e6e5-4b07-b455-684a9d879900")); // dwm_win7
+                //ets.EnableProvider("Microsoft-Windows-Dwm-Core");
+                //ets.EnableProvider(Guid.Parse("8c9dd1ad-e6e5-4b07-b455-684a9d879900")); // dwm_win7
                 ets.EnableProvider("Microsoft-Windows-Win32k");
 
                 ets.CaptureState(Guid.Parse("{802EC45A-1E99-4B83-9920-87C98277BA9D}")); // Microsoft-Windows-DxgKrnl
-                ets.CaptureState(Guid.Parse("{CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}")); // Microsoft-Windows-DXGI
+                //ets.CaptureState(Guid.Parse("{CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}")); // Microsoft-Windows-DXGI
 
                 Thread.Sleep(loggingSeconds * 1000);
             }
