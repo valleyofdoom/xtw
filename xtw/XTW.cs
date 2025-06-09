@@ -591,16 +591,22 @@ namespace xtw {
                         }
 
                         presentmonData[record.Application].PresentRuntime.Add(record.PresentRuntime);
-                        presentmonData[record.Application].PresentModes.Add(record.PresentMode);
-
-                        var frameTime = record.CPUBusy + record.CPUWait + record.GPUBusy + record.GPUWait;
-                        presentmonData[record.Application].FrameTimes.Add(frameTime);
-
+                        presentmonData[record.Application].SyncInterval.Add(record.SyncInterval);
+                        presentmonData[record.Application].PresentFlags.Add(record.PresentFlags);
+                        presentmonData[record.Application].AllowsTearing.Add(record.AllowsTearing);
+                        presentmonData[record.Application].PresentMode.Add(record.PresentMode);
+                        presentmonData[record.Application].FrameTime.Add(record.FrameTime);
                         presentmonData[record.Application].CPUBusy.Add(record.CPUBusy);
                         presentmonData[record.Application].CPUWait.Add(record.CPUWait);
-
+                        presentmonData[record.Application].GPULatency.Add(record.GPULatency);
+                        presentmonData[record.Application].GPUTime.Add(record.GPUTime);
                         presentmonData[record.Application].GPUBusy.Add(record.GPUBusy);
                         presentmonData[record.Application].GPUWait.Add(record.GPUWait);
+
+                        if (record.DisplayLatency != "NA") {
+                            var displayLatency = double.Parse(record.DisplayLatency);
+                            presentmonData[record.Application].DisplayLatency.Add(displayLatency);
+                        }
 
                         if (record.DisplayedTime != "NA") {
                             var displayedTime = double.Parse(record.DisplayedTime);
@@ -611,6 +617,16 @@ namespace xtw {
                             var animationError = double.Parse(record.AnimationError);
                             presentmonData[record.Application].AnimationError.Add(animationError);
                         }
+
+                        if (record.AllInputToPhotonLatency != "NA") {
+                            var allInputToPhotonLatency = double.Parse(record.AllInputToPhotonLatency);
+                            presentmonData[record.Application].AllInputToPhotonLatency.Add(allInputToPhotonLatency);
+                        }
+
+                        if (record.ClickToPhotonLatency != "NA") {
+                            var clickToPhotonLatency = double.Parse(record.ClickToPhotonLatency);
+                            presentmonData[record.Application].ClickToPhotonLatency.Add(clickToPhotonLatency);
+                        }
                     }
                 }
             }
@@ -620,10 +636,19 @@ namespace xtw {
 
                 var processData = presentmonData[processName];
 
-                reportLines.Add($"    Runtime: {string.Join(", ", processData.PresentRuntime)}\n");
-                reportLines.Add($"    Present Mode: {string.Join(", ", processData.PresentModes)}\n\n");
+                reportLines.Add(
+                    $"    Present Runtime: {string.Join(", ", processData.PresentRuntime),-10}" +
+                    $"Sync Interval: {string.Join(",", processData.SyncInterval),-10}" +
+                    $"Present Flags: {string.Join(",", processData.PresentFlags),-10}" +
+                    $"Allows Tearing: {string.Join(",", processData.AllowsTearing),-10}" +
+                    $"Present Mode: {string.Join(", ", processData.PresentMode)}" +
+                    $"\n"
+                );
 
-                reportLines.Add($"    {"Metric",-20}");
+                // space before metric table
+                reportLines.Add("\n");
+
+                reportLines.Add($"    {"Metric",-30}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
                     // don't add padding to last column
                     var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
@@ -631,9 +656,9 @@ namespace xtw {
                 }
                 reportLines.Add("\n");
 
-                var frametimeMetrics = new ComputeMetrics(processData.FrameTimes, processData.FrameTimes.Sum);
+                var frametimeMetrics = new ComputeMetrics(processData.FrameTime, processData.FrameTime.Sum);
                 reportLines.Add(
-                    $"    {"FrameTime",-20}" +
+                    $"    {"Frame Time",-30}" +
                     $"{frametimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{frametimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{frametimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
@@ -645,7 +670,7 @@ namespace xtw {
 
                 var cpuBusyMetrics = new ComputeMetrics(processData.CPUBusy, processData.CPUBusy.Sum);
                 reportLines.Add(
-                    $"    {"CPU Busy",-20}" +
+                    $"    {"CPU Busy",-30}" +
                     $"{cpuBusyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{cpuBusyMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{cpuBusyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
@@ -657,7 +682,7 @@ namespace xtw {
 
                 var cpuWaitMetrics = new ComputeMetrics(processData.CPUWait, processData.CPUWait.Sum);
                 reportLines.Add(
-                    $"    {"CPU Wait",-20}" +
+                    $"    {"CPU Wait",-30}" +
                     $"{cpuWaitMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{cpuWaitMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{cpuWaitMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
@@ -667,9 +692,33 @@ namespace xtw {
                     $"\n"
                 );
 
+                var gpuLatencyMetrics = new ComputeMetrics(processData.GPULatency, processData.GPULatency.Sum);
+                reportLines.Add(
+                    $"    {"GPU Latency",-30}" +
+                    $"{gpuLatencyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuLatencyMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuLatencyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuLatencyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuLatencyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{gpuLatencyMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var gpuTimeMetrics = new ComputeMetrics(processData.GPUTime, processData.GPUTime.Sum);
+                reportLines.Add(
+                    $"    {"GPU Time",-30}" +
+                    $"{gpuTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuTimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{gpuTimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{gpuTimeMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
                 var gpuBusyMetrics = new ComputeMetrics(processData.GPUBusy, processData.GPUBusy.Sum);
                 reportLines.Add(
-                    $"    {"GPU Busy",-20}" +
+                    $"    {"GPU Busy",-30}" +
                     $"{gpuBusyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{gpuBusyMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{gpuBusyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
@@ -681,7 +730,7 @@ namespace xtw {
 
                 var gpuWaitMetrics = new ComputeMetrics(processData.GPUWait, processData.GPUWait.Sum);
                 reportLines.Add(
-                    $"    {"GPU Wait",-20}" +
+                    $"    {"GPU Wait",-30}" +
                     $"{gpuWaitMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{gpuWaitMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{gpuWaitMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
@@ -691,9 +740,21 @@ namespace xtw {
                     $"\n"
                 );
 
+                var displayLatencyMetrics = new ComputeMetrics(processData.DisplayLatency, processData.DisplayLatency.Sum);
+                reportLines.Add(
+                    $"    {"Display Latency",-30}" +
+                    $"{displayLatencyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{displayLatencyMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{displayLatencyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{displayLatencyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{displayLatencyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{displayLatencyMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
                 var displayedTimeMetrics = new ComputeMetrics(processData.DisplayedTime, processData.DisplayedTime.Sum);
                 reportLines.Add(
-                    $"    {"Displayed Time",-20}" +
+                    $"    {"Displayed Time",-30}" +
                     $"{displayedTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{displayedTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{displayedTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
@@ -705,13 +766,37 @@ namespace xtw {
 
                 var animationErrorMetrics = new ComputeMetrics(processData.AnimationError, processData.AnimationError.Sum);
                 reportLines.Add(
-                    $"    {"Animation Error",-20}" +
+                    $"    {"Animation Error",-30}" +
                     $"{animationErrorMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.Average():F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
                     $"{animationErrorMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var allInputToPhotonLatencyMetrics = new ComputeMetrics(processData.AllInputToPhotonLatency, processData.AllInputToPhotonLatency.Sum);
+                reportLines.Add(
+                    $"    {"Input-to-Photon Latency",-30}" +
+                    $"{allInputToPhotonLatencyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{allInputToPhotonLatencyMetrics.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{allInputToPhotonLatencyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{allInputToPhotonLatencyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{allInputToPhotonLatencyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{allInputToPhotonLatencyMetrics.Percentile(99.9):F3}" +
+                    $"\n"
+                );
+
+                var clickToPhotonLatency = new ComputeMetrics(processData.ClickToPhotonLatency, processData.ClickToPhotonLatency.Sum);
+                reportLines.Add(
+                    $"    {"Click-to-Photon Latency",-30}" +
+                    $"{clickToPhotonLatency.Maximum():F3}".PadRight(metricsRightPadding) +
+                    $"{clickToPhotonLatency.Average():F3}".PadRight(metricsRightPadding) +
+                    $"{clickToPhotonLatency.Minimum():F3}".PadRight(metricsRightPadding) +
+                    $"{clickToPhotonLatency.StandardDeviation():F3}".PadRight(metricsRightPadding) +
+                    $"{clickToPhotonLatency.Percentile(99):F3}".PadRight(metricsRightPadding) +
+                    $"{clickToPhotonLatency.Percentile(99.9):F3}" +
                     $"\n"
                 );
 
