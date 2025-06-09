@@ -114,6 +114,11 @@ namespace xtw {
             } else {
                 etlFile = "xtw.etl";
 
+                // remove previous ETL file
+                if (File.Exists(etlFile)) {
+                    File.Delete(etlFile);
+                }
+
                 if (args.Delay > 0) {
                     log.Information($"waiting {args.Delay}s before starting trace");
                 }
@@ -145,6 +150,11 @@ namespace xtw {
 
             // get presentmon data
             var csvFile = "xtw.csv";
+
+            // remove previous CSV file
+            if (File.Exists(csvFile)) {
+                File.Delete(csvFile);
+            }
 
             var presentmonProcess = Process.Start(new ProcessStartInfo {
                 FileName = "PresentMon.exe",
