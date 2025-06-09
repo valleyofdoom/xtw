@@ -264,7 +264,7 @@ namespace xtw {
 
             for (var i = 0; i < interruptHandlingData.Activity.Count; i++) {
                 var interval = interruptHandlingData.Activity[i].Interval;
-                var module = interval.HandlerImage.FileName;
+                var module = interval.HandlerImage != null ? interval.HandlerImage.FileName : "Unknown";
                 var elapsedTimeUsec = (double)(interval.StopTime.Nanoseconds - interval.StartTime.Nanoseconds) / 1000;
 
                 // try get function name, requires symbols to be loaded
