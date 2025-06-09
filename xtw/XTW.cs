@@ -804,7 +804,7 @@ namespace xtw {
             }
 
             // write output file
-            var outputFile = args.OutputFile ?? "xtw-report.txt";
+            var outputFile = args.OutputReportFile ?? "xtw-report.txt";
 
             using (var writer = new StreamWriter(outputFile)) {
                 for (var i = 0; i < reportLines.Count; i++) {

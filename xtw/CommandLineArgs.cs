@@ -17,7 +17,7 @@ namespace xtw {
         [Option("timed", HelpText = "Collect trace events for the specified duration.")]
         public int Timed { get; set; }
 
-        [Option("output-file", HelpText = "Path for output file.")]
-        public string OutputFile { get; set; }
+        [Option("output-report-file", HelpText = "Path for report output file.")]
+        public string OutputReportFile { get; set; }
     }
 }
