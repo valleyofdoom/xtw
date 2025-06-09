@@ -114,6 +114,9 @@ namespace xtw {
             } else {
                 etlFile = "xtw.etl";
 
+                if (args.Delay > 0) {
+                    log.Information($"waiting {args.Delay}s before starting trace");
+                }
                 Thread.Sleep(args.Delay * 1000); // 0 if not specified
 
                 log.Information($"collecting trace for {args.Timed}s");
