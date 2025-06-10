@@ -67,7 +67,7 @@
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent">
       <Version>3.1.17</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.Windows.EventTracing.Cpu">
+    <PackageReference Include="Microsoft.Windows.EventTracing.Processing.All">
       <Version>1.12.10</Version>
     </PackageReference>
     <PackageReference Include="Serilog">
