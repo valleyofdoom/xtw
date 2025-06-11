@@ -19,7 +19,8 @@ namespace xtw {
         }
 
         public new void Clear() {
-            throw new NotImplementedException();
+            base.Clear();
+            Sum = 0;
         }
 
         public new void Insert(int index, double item) {

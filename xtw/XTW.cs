@@ -22,6 +22,8 @@ namespace xtw {
     internal class XTW {
         private static Version VERSION = Assembly.GetExecutingAssembly().GetName().Version;
         private static string BRANCH = "    └───";
+        private static int METRICS_RIGHT_PADDING = 20;
+
 
         private static void ShowBanner() {
             Console.WriteLine($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build} - GPLv3\nGitHub - https://github.com/valleyofdoom\n");
@@ -45,10 +47,10 @@ namespace xtw {
                     KernelTraceEventParser.Keywords.Interrupt |
                     KernelTraceEventParser.Keywords.DeferedProcedureCalls |
                     KernelTraceEventParser.Keywords.ImageLoad
-                    //KernelTraceEventParser.Keywords.Process |
-                    //KernelTraceEventParser.Keywords.Thread |
-                    //KernelTraceEventParser.Keywords.ContextSwitch |
-                    //KernelTraceEventParser.Keywords.Dispatcher
+                //KernelTraceEventParser.Keywords.Process |
+                //KernelTraceEventParser.Keywords.Thread |
+                //KernelTraceEventParser.Keywords.ContextSwitch |
+                //KernelTraceEventParser.Keywords.Dispatcher
                 );
 
                 // https://github.com/GameTechDev/PresentMon/blob/main/Tools/etl_collection_timed.cmd
@@ -69,6 +71,34 @@ namespace xtw {
 
         private static string GetFormattedInterruptType(InterruptHandlingType interryptHandlingType) {
             return interryptHandlingType == InterruptHandlingType.InterruptServiceRoutine ? "ISR" : "DPC";
+        }
+
+        private static string GetComputedMetrics(ComputeMetrics computeMetrics, string name, int nameRightPadding, bool isBranched = false) {
+            var finalString = "    ";
+
+            if (isBranched) {
+                finalString += $"{BRANCH}{name.PadRight(nameRightPadding - BRANCH.Length)}";
+            } else {
+                finalString += $"{name.PadRight(nameRightPadding)}";
+            }
+
+            if (computeMetrics.Size() == 0) {
+                finalString += "-".PadRight(METRICS_RIGHT_PADDING) +
+                    "-".PadRight(METRICS_RIGHT_PADDING) +
+                    "-".PadRight(METRICS_RIGHT_PADDING) +
+                    "-".PadRight(METRICS_RIGHT_PADDING) +
+                    "-".PadRight(METRICS_RIGHT_PADDING) +
+                    "-".PadRight(METRICS_RIGHT_PADDING);
+            } else {
+                finalString += $"{computeMetrics.Maximum():F3}".PadRight(METRICS_RIGHT_PADDING) +
+                    $"{computeMetrics.Average():F3}".PadRight(METRICS_RIGHT_PADDING) +
+                    $"{computeMetrics.Minimum():F3}".PadRight(METRICS_RIGHT_PADDING) +
+                    $"{computeMetrics.StandardDeviation():F3}".PadRight(METRICS_RIGHT_PADDING) +
+                    $"{computeMetrics.Percentile(99):F3}".PadRight(METRICS_RIGHT_PADDING) +
+                    $"{computeMetrics.Percentile(99.9):F3}";
+            }
+
+            return finalString;
         }
 
         public static async Task<int> Main() {
@@ -218,7 +248,6 @@ namespace xtw {
             }
 
             var reportLines = new List<string>();
-            var metricsRightPadding = 20;
             string[] metricsTableHeadings = { "Max", "Avg", "Min", "STDEV", "99 %ile", "99.9 %ile" };
 
             // initialize data dictionary
@@ -369,7 +398,7 @@ namespace xtw {
 
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var processor = 0; processor < traceMetadata.ProcessorCount; processor++) {
-                    reportLines.Add($"CPU {processor.ToString().PadRight(metricsRightPadding - 4)}"); // -4 due to the table-wide indent
+                    reportLines.Add($"CPU {processor.ToString().PadRight(METRICS_RIGHT_PADDING - 4)}"); // -4 due to the table-wide indent
                 }
                 reportLines.Add("Total\n");
 
@@ -387,7 +416,7 @@ namespace xtw {
                         var count = moduleData.DpcIsrData.CountByProcessor[processor];
 
                         var processorModuleTotals = count > 0 ? $"{elapsedTime:F3} ({count})" : "-";
-                        reportLines.Add(processorModuleTotals.PadRight(metricsRightPadding));
+                        reportLines.Add(processorModuleTotals.PadRight(METRICS_RIGHT_PADDING));
 
                         totalModuleElapsedTime += elapsedTime;
                         totalModuleInterruptCount += count;
@@ -409,14 +438,14 @@ namespace xtw {
                             var count = functionData.CountByProcessor[processor];
 
                             var processorFunctionTotals = count > 0 ? $"{elapsedTime:F3} ({count})" : "-";
-                            reportLines.Add(processorFunctionTotals.PadRight(metricsRightPadding));
+                            reportLines.Add(processorFunctionTotals.PadRight(METRICS_RIGHT_PADDING));
 
                             totalFunctionElapsedTime += elapsedTime;
                             totalFunctionCount += count;
                         }
 
                         var functionTotals = totalFunctionCount > 0 ? $"{totalFunctionElapsedTime:F3} ({totalFunctionCount})" : "-";
-                        reportLines.Add($"{functionTotals.PadRight(metricsRightPadding)}\n");
+                        reportLines.Add($"{functionTotals.PadRight(METRICS_RIGHT_PADDING)}\n");
                     }
                 }
 
@@ -428,7 +457,7 @@ namespace xtw {
                     var count = systemData[interruptType].DpcIsrData.CountByProcessor[processor];
 
                     var processorSystemTotals = count > 0 ? $"{elapsedTime:F3} ({count})" : "-";
-                    reportLines.Add(processorSystemTotals.PadRight(metricsRightPadding).PadRight(metricsRightPadding));
+                    reportLines.Add(processorSystemTotals.PadRight(METRICS_RIGHT_PADDING).PadRight(METRICS_RIGHT_PADDING));
                 }
 
                 var systemTotals = systemData[interruptType].DpcIsrData.SumCount > 0 ? $"{systemData[interruptType].DpcIsrData.ElapsedTimesUs.Sum:F3} ({systemData[interruptType].DpcIsrData.SumCount})" : "-";
@@ -445,7 +474,7 @@ namespace xtw {
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
                     // don't add padding to last column
-                    var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
+                    var rightPadding = i != metricsTableHeadings.Length - 1 ? METRICS_RIGHT_PADDING : 0;
                     reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
                 }
                 reportLines.Add("\n");
@@ -472,18 +501,11 @@ namespace xtw {
                         sumSystemIntervalsMs += msBetweenEvents;
                     }
 
-                    var moduleIntervalMetrics = new ComputeMetrics(moduleIntervalsMs, sumModuleIntervalMs);
-                    reportLines.Add(
-                        $"    " +
-                        $"{moduleName.PadRight(moduleRightPadding)}" +
-                        $"{moduleIntervalMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                        $"{moduleIntervalMetrics.Percentile(99.9):F3}" +
-                        $"\n"
-                    );
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(moduleIntervalsMs, sumModuleIntervalMs),
+                        moduleName,
+                        moduleRightPadding
+                        ) + "\n");
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         var functionData = moduleData.FunctionsData[functionName];
@@ -500,31 +522,20 @@ namespace xtw {
                             sumFunctionIntervalsMs += msBetweenEvents;
                         }
 
-                        var functionIntervalMetrics = new ComputeMetrics(functionIntervalsMs, sumFunctionIntervalsMs);
-                        reportLines.Add(
-                            $"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}" +
-                            $"{functionIntervalMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                            $"{functionIntervalMetrics.Percentile(99.9):F3}" +
-                            $"\n"
-                        );
+                        reportLines.Add(GetComputedMetrics(
+                            new ComputeMetrics(functionIntervalsMs, sumFunctionIntervalsMs),
+                            functionName,
+                            moduleRightPadding,
+                            true
+                            ) + "\n");
                     }
                 }
 
-                var systemIntervalMetrics = new ComputeMetrics(systemIntervalsMs, sumSystemIntervalsMs);
-                reportLines.Add(
-                    $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
-                    $"{systemIntervalMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{systemIntervalMetrics.Percentile(99.9):F3}" +
-                    $"\n\n"
-                );
+                reportLines.Add("\n" + GetComputedMetrics(
+                    new ComputeMetrics(systemIntervalsMs, sumSystemIntervalsMs),
+                    "System Summary",
+                    moduleRightPadding
+                    ) + "\n\n");
             }
 
             reportLines.Add("\n\n"); // space between sections
@@ -538,7 +549,7 @@ namespace xtw {
                 reportLines.Add($"    {"Module".PadRight(moduleRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
                     // don't add padding to last column
-                    var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
+                    var rightPadding = i != metricsTableHeadings.Length - 1 ? METRICS_RIGHT_PADDING : 0;
                     reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
                 }
                 reportLines.Add("\n");
@@ -546,46 +557,29 @@ namespace xtw {
                 foreach (var moduleName in modules.Keys) {
                     var moduleData = modules[moduleName];
 
-                    var moduleElapsedMetrics = new ComputeMetrics(moduleData.DpcIsrData.ElapsedTimesUs, moduleData.DpcIsrData.ElapsedTimesUs.Sum);
-                    reportLines.Add(
-                        $"    {moduleName.PadRight(moduleRightPadding)}" +
-                        $"{moduleElapsedMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                        $"{moduleElapsedMetrics.Percentile(99.9):F3}" +
-                        $"\n"
-                    );
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(moduleData.DpcIsrData.ElapsedTimesUs, moduleData.DpcIsrData.ElapsedTimesUs.Sum),
+                        moduleName,
+                        moduleRightPadding
+                        ) + "\n");
 
                     foreach (var functionName in moduleData.FunctionsData.Keys) {
                         var functionData = moduleData.FunctionsData[functionName];
 
-                        var functionElapsedMetrics = new ComputeMetrics(functionData.ElapsedTimesUs, functionData.ElapsedTimesUs.Sum);
-                        reportLines.Add(
-                            $"    {BRANCH}{functionName.PadRight(moduleRightPadding - BRANCH.Length)}" +
-                            $"{functionElapsedMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                            $"{functionElapsedMetrics.Percentile(99.9):F3}" +
-                            $"\n"
-                        );
+                        reportLines.Add(GetComputedMetrics(
+                            new ComputeMetrics(functionData.ElapsedTimesUs, functionData.ElapsedTimesUs.Sum),
+                            functionName,
+                            moduleRightPadding,
+                            true
+                            ) + "\n");
                     }
                 }
 
-                var systemMetrics = new ComputeMetrics(systemData[interruptType].DpcIsrData.ElapsedTimesUs, systemData[interruptType].DpcIsrData.ElapsedTimesUs.Sum);
-                reportLines.Add(
-                    $"\n    {"System Summary".PadRight(moduleRightPadding)}" +
-                    $"{systemMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{systemMetrics.Percentile(99.9):F3}" +
-                    $"\n\n"
-                );
+                reportLines.Add("\n" + GetComputedMetrics(
+                    new ComputeMetrics(systemData[interruptType].DpcIsrData.ElapsedTimesUs, systemData[interruptType].DpcIsrData.ElapsedTimesUs.Sum),
+                    "System Summary",
+                    moduleRightPadding
+                    ) + "\n\n");
             }
 
             reportLines.Add("\n\n"); // space between sections
@@ -608,37 +602,38 @@ namespace xtw {
                         presentmonData[record.Application].PresentFlags.Add(record.PresentFlags);
                         presentmonData[record.Application].AllowsTearing.Add(record.AllowsTearing);
                         presentmonData[record.Application].PresentMode.Add(record.PresentMode);
-                        presentmonData[record.Application].FrameTime.Add(record.FrameTime);
-                        presentmonData[record.Application].CPUBusy.Add(record.CPUBusy);
-                        presentmonData[record.Application].CPUWait.Add(record.CPUWait);
-                        presentmonData[record.Application].GPULatency.Add(record.GPULatency);
-                        presentmonData[record.Application].GPUTime.Add(record.GPUTime);
-                        presentmonData[record.Application].GPUBusy.Add(record.GPUBusy);
-                        presentmonData[record.Application].GPUWait.Add(record.GPUWait);
 
-                        if (record.DisplayLatency != "NA") {
-                            var displayLatency = double.Parse(record.DisplayLatency);
-                            presentmonData[record.Application].DisplayLatency.Add(displayLatency);
+                        if (record.MsBetweenSimulationStart != "NA") {
+                            presentmonData[record.Application].MsBetweenSimulationStart.Add(
+                                 double.Parse(record.MsBetweenSimulationStart));
                         }
 
-                        if (record.DisplayedTime != "NA") {
-                            var displayedTime = double.Parse(record.DisplayedTime);
-                            presentmonData[record.Application].DisplayedTime.Add(displayedTime);
+                        presentmonData[record.Application].MsRenderPresentLatency.Add(record.MsRenderPresentLatency);
+                        presentmonData[record.Application].MsBetweenPresents.Add(record.MsBetweenPresents);
+                        presentmonData[record.Application].MsBetweenAppStart.Add(record.MsBetweenAppStart);
+                        presentmonData[record.Application].MsCPUBusy.Add(record.MsCPUBusy);
+                        presentmonData[record.Application].MsCPUWait.Add(record.MsCPUWait);
+                        presentmonData[record.Application].MsInPresentAPI.Add(record.MsInPresentAPI);
+                        presentmonData[record.Application].MsGPULatency.Add(record.MsGPULatency);
+                        presentmonData[record.Application].MsGPUTime.Add(record.MsGPUTime);
+                        presentmonData[record.Application].MsGPUBusy.Add(record.MsGPUBusy);
+                        presentmonData[record.Application].MsGPUWait.Add(record.MsGPUWait);
+                        presentmonData[record.Application].MsUntilDisplayed.Add(record.MsUntilDisplayed);
+                        presentmonData[record.Application].MsBetweenDisplayChange.Add(record.MsBetweenDisplayChange);
+
+                        if (record.MsAnimationError != "NA") {
+                            presentmonData[record.Application].MsAnimationError.Add(
+                                 double.Parse(record.MsAnimationError));
                         }
 
-                        if (record.AnimationError != "NA") {
-                            var animationError = double.Parse(record.AnimationError);
-                            presentmonData[record.Application].AnimationError.Add(animationError);
+                        if (record.MsAllInputToPhotonLatency != "NA") {
+                            presentmonData[record.Application].MsAllInputToPhotonLatency.Add(
+                                double.Parse(record.MsAllInputToPhotonLatency));
                         }
 
-                        if (record.AllInputToPhotonLatency != "NA") {
-                            var allInputToPhotonLatency = double.Parse(record.AllInputToPhotonLatency);
-                            presentmonData[record.Application].AllInputToPhotonLatency.Add(allInputToPhotonLatency);
-                        }
-
-                        if (record.ClickToPhotonLatency != "NA") {
-                            var clickToPhotonLatency = double.Parse(record.ClickToPhotonLatency);
-                            presentmonData[record.Application].ClickToPhotonLatency.Add(clickToPhotonLatency);
+                        if (record.MsClickToPhotonLatency != "NA") {
+                            presentmonData[record.Application].MsClickToPhotonLatency.Add(
+                                double.Parse(record.MsClickToPhotonLatency));
                         }
                     }
                 }
@@ -661,157 +656,120 @@ namespace xtw {
                 // space before metric table
                 reportLines.Add("\n");
 
-                reportLines.Add($"    {"Metric",-30}");
+                var processRightPadding = 30;
+
+                reportLines.Add($"    {"Metric".PadRight(processRightPadding)}");
                 for (var i = 0; i < metricsTableHeadings.Length; i++) {
                     // don't add padding to last column
-                    var rightPadding = i != metricsTableHeadings.Length - 1 ? metricsRightPadding : 0;
+                    var rightPadding = i != metricsTableHeadings.Length - 1 ? METRICS_RIGHT_PADDING : 0;
                     reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
                 }
                 reportLines.Add("\n");
 
-                var frametimeMetrics = new ComputeMetrics(processData.FrameTime, processData.FrameTime.Sum);
-                reportLines.Add(
-                    $"    {"Frame Time",-30}" +
-                    $"{frametimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{frametimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{frametimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{frametimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{frametimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{frametimeMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
 
-                var cpuBusyMetrics = new ComputeMetrics(processData.CPUBusy, processData.CPUBusy.Sum);
-                reportLines.Add(
-                    $"    {"CPU Busy",-30}" +
-                    $"{cpuBusyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuBusyMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuBusyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuBusyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuBusyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{cpuBusyMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsBetweenSimulationStart, processData.MsBetweenSimulationStart.Sum),
+                    "MsBetweenSimulationStart",
+                    processRightPadding
+                    ) + "\n");
 
-                var cpuWaitMetrics = new ComputeMetrics(processData.CPUWait, processData.CPUWait.Sum);
-                reportLines.Add(
-                    $"    {"CPU Wait",-30}" +
-                    $"{cpuWaitMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuWaitMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuWaitMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuWaitMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{cpuWaitMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{cpuWaitMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsRenderPresentLatency, processData.MsRenderPresentLatency.Sum),
+                    "RenderPresentLatency",
+                    processRightPadding
+                    ) + "\n");
 
-                var gpuLatencyMetrics = new ComputeMetrics(processData.GPULatency, processData.GPULatency.Sum);
-                reportLines.Add(
-                    $"    {"GPU Latency",-30}" +
-                    $"{gpuLatencyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuLatencyMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuLatencyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuLatencyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuLatencyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{gpuLatencyMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsBetweenPresents, processData.MsBetweenPresents.Sum),
+                    "MsBetweenPresents",
+                    processRightPadding
+                    ) + "\n");
 
-                var gpuTimeMetrics = new ComputeMetrics(processData.GPUTime, processData.GPUTime.Sum);
-                reportLines.Add(
-                    $"    {"GPU Time",-30}" +
-                    $"{gpuTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuTimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuTimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{gpuTimeMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add("\n");
 
-                var gpuBusyMetrics = new ComputeMetrics(processData.GPUBusy, processData.GPUBusy.Sum);
-                reportLines.Add(
-                    $"    {"GPU Busy",-30}" +
-                    $"{gpuBusyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuBusyMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuBusyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuBusyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuBusyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{gpuBusyMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsBetweenAppStart, processData.MsBetweenAppStart.Sum),
+                    "Frame Time",
+                    processRightPadding
+                    ) + "\n");
 
-                var gpuWaitMetrics = new ComputeMetrics(processData.GPUWait, processData.GPUWait.Sum);
-                reportLines.Add(
-                    $"    {"GPU Wait",-30}" +
-                    $"{gpuWaitMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuWaitMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuWaitMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuWaitMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{gpuWaitMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{gpuWaitMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsCPUBusy, processData.MsCPUBusy.Sum),
+                    "CPU Busy",
+                    processRightPadding
+                    ) + "\n");
 
-                var displayLatencyMetrics = new ComputeMetrics(processData.DisplayLatency, processData.DisplayLatency.Sum);
-                reportLines.Add(
-                    $"    {"Display Latency",-30}" +
-                    $"{displayLatencyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{displayLatencyMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{displayLatencyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{displayLatencyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{displayLatencyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{displayLatencyMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsCPUWait, processData.MsCPUWait.Sum),
+                    "CPU Wait",
+                    processRightPadding
+                    ) + "\n");
 
-                var displayedTimeMetrics = new ComputeMetrics(processData.DisplayedTime, processData.DisplayedTime.Sum);
-                reportLines.Add(
-                    $"    {"Displayed Time",-30}" +
-                    $"{displayedTimeMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{displayedTimeMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{displayedTimeMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{displayedTimeMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{displayedTimeMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{displayedTimeMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsInPresentAPI, processData.MsInPresentAPI.Sum),
+                    "MsInPresentAPI",
+                    processRightPadding
+                    ) + "\n");
 
-                var animationErrorMetrics = new ComputeMetrics(processData.AnimationError, processData.AnimationError.Sum);
-                reportLines.Add(
-                    $"    {"Animation Error",-30}" +
-                    $"{animationErrorMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{animationErrorMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{animationErrorMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{animationErrorMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{animationErrorMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{animationErrorMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add("\n");
 
-                var allInputToPhotonLatencyMetrics = new ComputeMetrics(processData.AllInputToPhotonLatency, processData.AllInputToPhotonLatency.Sum);
-                reportLines.Add(
-                    $"    {"Input-to-Photon Latency",-30}" +
-                    $"{allInputToPhotonLatencyMetrics.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{allInputToPhotonLatencyMetrics.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{allInputToPhotonLatencyMetrics.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{allInputToPhotonLatencyMetrics.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{allInputToPhotonLatencyMetrics.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{allInputToPhotonLatencyMetrics.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsGPULatency, processData.MsGPULatency.Sum),
+                    "GPU Latency",
+                    processRightPadding
+                    ) + "\n");
 
-                var clickToPhotonLatency = new ComputeMetrics(processData.ClickToPhotonLatency, processData.ClickToPhotonLatency.Sum);
-                reportLines.Add(
-                    $"    {"Click-to-Photon Latency",-30}" +
-                    $"{clickToPhotonLatency.Maximum():F3}".PadRight(metricsRightPadding) +
-                    $"{clickToPhotonLatency.Average():F3}".PadRight(metricsRightPadding) +
-                    $"{clickToPhotonLatency.Minimum():F3}".PadRight(metricsRightPadding) +
-                    $"{clickToPhotonLatency.StandardDeviation():F3}".PadRight(metricsRightPadding) +
-                    $"{clickToPhotonLatency.Percentile(99):F3}".PadRight(metricsRightPadding) +
-                    $"{clickToPhotonLatency.Percentile(99.9):F3}" +
-                    $"\n"
-                );
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsGPUTime, processData.MsGPUTime.Sum),
+                    "GPU Time",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsGPUBusy, processData.MsGPUBusy.Sum),
+                    "GPU Busy",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsGPUWait, processData.MsGPUWait.Sum),
+                    "GPU Wait",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add("\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsUntilDisplayed, processData.MsUntilDisplayed.Sum),
+                    "MsUntilDisplayed",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsBetweenDisplayChange, processData.MsBetweenDisplayChange.Sum),
+                    "Displayed Time",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsAnimationError, processData.MsAnimationError.Sum),
+                    "Animation Error",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add("\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsAllInputToPhotonLatency, processData.MsAllInputToPhotonLatency.Sum),
+                    "Input To Photon Latency",
+                    processRightPadding
+                    ) + "\n");
+
+                reportLines.Add(GetComputedMetrics(
+                    new ComputeMetrics(processData.MsClickToPhotonLatency, processData.MsClickToPhotonLatency.Sum),
+                    "Click To Photon Latency",
+                    processRightPadding
+                    ) + "\n");
 
                 reportLines.Add("\n");
             }

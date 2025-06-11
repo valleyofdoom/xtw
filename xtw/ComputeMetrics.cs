@@ -38,6 +38,10 @@ namespace xtw {
             return size > 0 ? sortedDataset[(int)Math.Ceiling(value / 100 * size) - 1] : 0;
         }
 
+        public int Size() {
+            return size;
+        }
+
         public ComputeMetrics(List<double> dataset, double? total = null) {
             sortedDataset = dataset;
             sortedDataset.Sort();
