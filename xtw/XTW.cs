@@ -598,9 +598,22 @@ namespace xtw {
                         }
 
                         presentmonData[record.Application].PresentRuntime.Add(record.PresentRuntime);
-                        presentmonData[record.Application].SyncInterval.Add(record.SyncInterval);
-                        presentmonData[record.Application].PresentFlags.Add(record.PresentFlags);
-                        presentmonData[record.Application].AllowsTearing.Add(record.AllowsTearing);
+
+                        if (record.SyncInterval != "NA") {
+                            presentmonData[record.Application].SyncInterval.Add(
+                                 int.Parse(record.SyncInterval));
+                        }
+
+                        if (record.PresentFlags != "NA") {
+                            presentmonData[record.Application].PresentFlags.Add(
+                                 int.Parse(record.PresentFlags));
+                        }
+
+                        if (record.AllowsTearing != "NA") {
+                            presentmonData[record.Application].AllowsTearing.Add(
+                                 int.Parse(record.AllowsTearing));
+                        }
+
                         presentmonData[record.Application].PresentMode.Add(record.PresentMode);
 
                         if (record.MsBetweenSimulationStart != "NA") {
@@ -608,18 +621,65 @@ namespace xtw {
                                  double.Parse(record.MsBetweenSimulationStart));
                         }
 
-                        presentmonData[record.Application].MsRenderPresentLatency.Add(record.MsRenderPresentLatency);
-                        presentmonData[record.Application].MsBetweenPresents.Add(record.MsBetweenPresents);
-                        presentmonData[record.Application].MsBetweenAppStart.Add(record.MsBetweenAppStart);
-                        presentmonData[record.Application].MsCPUBusy.Add(record.MsCPUBusy);
-                        presentmonData[record.Application].MsCPUWait.Add(record.MsCPUWait);
-                        presentmonData[record.Application].MsInPresentAPI.Add(record.MsInPresentAPI);
-                        presentmonData[record.Application].MsGPULatency.Add(record.MsGPULatency);
-                        presentmonData[record.Application].MsGPUTime.Add(record.MsGPUTime);
-                        presentmonData[record.Application].MsGPUBusy.Add(record.MsGPUBusy);
-                        presentmonData[record.Application].MsGPUWait.Add(record.MsGPUWait);
-                        presentmonData[record.Application].MsUntilDisplayed.Add(record.MsUntilDisplayed);
-                        presentmonData[record.Application].MsBetweenDisplayChange.Add(record.MsBetweenDisplayChange);
+                        if (record.MsRenderPresentLatency != "NA") {
+                            presentmonData[record.Application].MsRenderPresentLatency.Add(
+                                 double.Parse(record.MsRenderPresentLatency));
+                        }
+
+                        if (record.MsBetweenPresents != "NA") {
+                            presentmonData[record.Application].MsBetweenPresents.Add(
+                                 double.Parse(record.MsBetweenPresents));
+                        }
+
+                        if (record.MsBetweenAppStart != "NA") {
+                            presentmonData[record.Application].MsBetweenAppStart.Add(
+                                 double.Parse(record.MsBetweenAppStart));
+                        }
+
+                        if (record.MsCPUBusy != "NA") {
+                            presentmonData[record.Application].MsCPUBusy.Add(
+                                 double.Parse(record.MsCPUBusy));
+                        }
+
+                        if (record.MsCPUWait != "NA") {
+                            presentmonData[record.Application].MsCPUWait.Add(
+                                 double.Parse(record.MsCPUWait));
+                        }
+
+                        if (record.MsInPresentAPI != "NA") {
+                            presentmonData[record.Application].MsInPresentAPI.Add(
+                                 double.Parse(record.MsInPresentAPI));
+                        }
+
+                        if (record.MsGPULatency != "NA") {
+                            presentmonData[record.Application].MsGPULatency.Add(
+                                 double.Parse(record.MsGPULatency));
+                        }
+
+                        if (record.MsGPUTime != "NA") {
+                            presentmonData[record.Application].MsGPUTime.Add(
+                                 double.Parse(record.MsGPUTime));
+                        }
+
+                        if (record.MsGPUBusy != "NA") {
+                            presentmonData[record.Application].MsGPUBusy.Add(
+                                 double.Parse(record.MsGPUBusy));
+                        }
+
+                        if (record.MsUntilDisplayed != "NA") {
+                            presentmonData[record.Application].MsUntilDisplayed.Add(
+                                 double.Parse(record.MsUntilDisplayed));
+                        }
+
+                        if (record.MsGPUTime != "NA") {
+                            presentmonData[record.Application].MsGPUTime.Add(
+                                 double.Parse(record.MsGPUTime));
+                        }
+
+                        if (record.MsBetweenDisplayChange != "NA") {
+                            presentmonData[record.Application].MsBetweenDisplayChange.Add(
+                                 double.Parse(record.MsBetweenDisplayChange));
+                        }
 
                         if (record.MsAnimationError != "NA") {
                             presentmonData[record.Application].MsAnimationError.Add(
