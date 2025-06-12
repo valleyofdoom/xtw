@@ -24,4 +24,4 @@ The simplest method of getting started is to run the ``xtw_etl_collection.bat``.
 |``--symbols``|Support for symbol resolution|
 |``--delay <seconds>``|Delay trace log collection for the specified duration|
 |``--timed <seconds>``|Collect events for the specified duration and stop automatically|
-|``--output-file <path>``|Specify output file path|
+|``--output-report-file <path>``|Path for report output file.|
