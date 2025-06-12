@@ -200,8 +200,10 @@ namespace xtw {
                 return 1;
             }
 
+            // allow lost events
+            var settings = new TraceProcessorSettings { AllowLostEvents = true };
             // load the etl
-            var traceProcessor = TraceProcessor.Create(etlFile);
+            var traceProcessor = TraceProcessor.Create(etlFile, settings);
 
             // select events
             var traceMetadata = traceProcessor.UseMetadata();
