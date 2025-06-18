@@ -104,7 +104,7 @@ namespace xtw {
         public static async Task<int> Main() {
             // create logger
             var log = new LoggerConfiguration()
-                .MinimumLevel.Is(LogEventLevel.Debug)
+                .MinimumLevel.Is(LogEventLevel.Information)
                 .WriteTo.Console()
                 .CreateLogger();
 
