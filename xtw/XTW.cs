@@ -155,7 +155,7 @@ namespace xtw {
                     return 1;
                 }
 
-                log.Information($"Successfully merged traces to: {mergedETL}");
+                log.Information($"successfully merged traces to: {mergedETL}");
                 return 0;
             }
 
