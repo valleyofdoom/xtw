@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using System.Collections.Generic;
 
 namespace xtw {
     public class CommandLineArgs {
@@ -19,5 +20,8 @@ namespace xtw {
 
         [Option("output-report-file", HelpText = "Path for report output file.")]
         public string OutputReportFile { get; set; }
+
+        [Option("merge", HelpText = "Merge trace files e.g. --merge trace1.etl trace2.etl ... merged.etl")]
+        public IEnumerable<string> MergeETLs { get; set; }
     }
 }

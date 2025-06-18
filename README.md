@@ -25,3 +25,4 @@ The simplest method of getting started is to run the ``xtw_etl_collection.bat``.
 |``--delay <seconds>``|Delay trace log collection for the specified duration|
 |``--timed <seconds>``|Collect events for the specified duration and stop automatically|
 |``--output-report-file <path>``|Path for report output file.|
+|``--merge <trace1> <trace2> ... <merged_trace>``|Merge 2 or more traces. E.g. ``--merge trace1.etl trace2.etl merged.etl``|

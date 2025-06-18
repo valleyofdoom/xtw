@@ -17,6 +17,7 @@ using System.Threading;
 using CsvHelper;
 using System.Globalization;
 using System.Diagnostics;
+using System.Linq;
 
 namespace xtw {
     internal class XTW {
@@ -122,6 +123,40 @@ namespace xtw {
 
             if (args == null) {
                 return 1;
+            }
+
+            if (args.MergeETLs.Count() > 0) {
+                if (args.MergeETLs.Count() < 3) {
+                    log.Error("--merge requires at least 3 trace paths e.g. --merge trace1.etl trace2.etl ... merged.etl");
+                    return 1;
+                }
+
+                var mergeETLs = new List<string>();
+                var mergedETL = args.MergeETLs.Last();
+
+                foreach (var tracePath in args.MergeETLs) {
+                    // last item
+                    if (tracePath == mergedETL) {
+                        continue;
+                    }
+
+                    if (!File.Exists(tracePath)) {
+                        log.Error($"{tracePath} not exists");
+                        return 1;
+                    }
+
+                    mergeETLs.Add(tracePath);
+                }
+
+                ETWKernelControl.Merge(mergeETLs.ToArray(), mergedETL, EVENT_TRACE_MERGE_EXTENDED_DATA.NONE);
+
+                if (!File.Exists(mergedETL)) {
+                    log.Error($"failed to merge traces, {mergedETL} not exists");
+                    return 1;
+                }
+
+                log.Information($"Successfully merged traces to: {mergedETL}");
+                return 0;
             }
 
             // either an etl file or record time must be specified
