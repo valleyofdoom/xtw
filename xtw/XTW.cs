@@ -195,9 +195,11 @@ namespace xtw {
 
             presentmonProcess.WaitForExit();
 
-            if (!File.Exists(csvFile)) {
-                log.Error($"presentmon csv error: {etlFile} not exists");
-                return 1;
+            // used to determine whether to generate the section too
+            var hasPresentMonData = File.Exists(csvFile);
+
+            if (!hasPresentMonData) {
+                log.Warning($"presentmon was unable to extract data from {etlFile}");
             }
 
             // allow lost events
@@ -595,253 +597,256 @@ namespace xtw {
             reportLines.Add("\n\n"); // space between sections
 
             // TABLE
-            var presentmonData = new Dictionary<string, PresentMonData>();
 
-            using (var reader = new StreamReader(csvFile)) {
-                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture)) {
-                    var records = csv.GetRecords<PresentMonColumn>();
-                    foreach (var record in records) {
+            if (hasPresentMonData) {
+                var presentmonData = new Dictionary<string, PresentMonData>();
 
-                        // create entry for process if it doesn't exist
-                        if (!presentmonData.ContainsKey(record.Application)) {
-                            presentmonData[record.Application] = new PresentMonData();
-                        }
+                using (var reader = new StreamReader(csvFile)) {
+                    using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture)) {
+                        var records = csv.GetRecords<PresentMonColumn>();
+                        foreach (var record in records) {
 
-                        presentmonData[record.Application].PresentRuntime.Add(record.PresentRuntime);
+                            // create entry for process if it doesn't exist
+                            if (!presentmonData.ContainsKey(record.Application)) {
+                                presentmonData[record.Application] = new PresentMonData();
+                            }
 
-                        if (record.SyncInterval != "NA") {
-                            presentmonData[record.Application].SyncInterval.Add(
-                                 int.Parse(record.SyncInterval));
-                        }
+                            presentmonData[record.Application].PresentRuntime.Add(record.PresentRuntime);
 
-                        if (record.PresentFlags != "NA") {
-                            presentmonData[record.Application].PresentFlags.Add(
-                                 int.Parse(record.PresentFlags));
-                        }
+                            if (record.SyncInterval != "NA") {
+                                presentmonData[record.Application].SyncInterval.Add(
+                                     int.Parse(record.SyncInterval));
+                            }
 
-                        if (record.AllowsTearing != "NA") {
-                            presentmonData[record.Application].AllowsTearing.Add(
-                                 int.Parse(record.AllowsTearing));
-                        }
+                            if (record.PresentFlags != "NA") {
+                                presentmonData[record.Application].PresentFlags.Add(
+                                     int.Parse(record.PresentFlags));
+                            }
 
-                        presentmonData[record.Application].PresentMode.Add(record.PresentMode);
+                            if (record.AllowsTearing != "NA") {
+                                presentmonData[record.Application].AllowsTearing.Add(
+                                     int.Parse(record.AllowsTearing));
+                            }
 
-                        if (record.MsBetweenSimulationStart != "NA") {
-                            presentmonData[record.Application].MsBetweenSimulationStart.Add(
-                                 double.Parse(record.MsBetweenSimulationStart));
-                        }
+                            presentmonData[record.Application].PresentMode.Add(record.PresentMode);
 
-                        if (record.MsRenderPresentLatency != "NA") {
-                            presentmonData[record.Application].MsRenderPresentLatency.Add(
-                                 double.Parse(record.MsRenderPresentLatency));
-                        }
+                            if (record.MsBetweenSimulationStart != "NA") {
+                                presentmonData[record.Application].MsBetweenSimulationStart.Add(
+                                     double.Parse(record.MsBetweenSimulationStart));
+                            }
 
-                        if (record.MsBetweenPresents != "NA") {
-                            presentmonData[record.Application].MsBetweenPresents.Add(
-                                 double.Parse(record.MsBetweenPresents));
-                        }
+                            if (record.MsRenderPresentLatency != "NA") {
+                                presentmonData[record.Application].MsRenderPresentLatency.Add(
+                                     double.Parse(record.MsRenderPresentLatency));
+                            }
 
-                        if (record.MsBetweenAppStart != "NA") {
-                            presentmonData[record.Application].MsBetweenAppStart.Add(
-                                 double.Parse(record.MsBetweenAppStart));
-                        }
+                            if (record.MsBetweenPresents != "NA") {
+                                presentmonData[record.Application].MsBetweenPresents.Add(
+                                     double.Parse(record.MsBetweenPresents));
+                            }
 
-                        if (record.MsCPUBusy != "NA") {
-                            presentmonData[record.Application].MsCPUBusy.Add(
-                                 double.Parse(record.MsCPUBusy));
-                        }
+                            if (record.MsBetweenAppStart != "NA") {
+                                presentmonData[record.Application].MsBetweenAppStart.Add(
+                                     double.Parse(record.MsBetweenAppStart));
+                            }
 
-                        if (record.MsCPUWait != "NA") {
-                            presentmonData[record.Application].MsCPUWait.Add(
-                                 double.Parse(record.MsCPUWait));
-                        }
+                            if (record.MsCPUBusy != "NA") {
+                                presentmonData[record.Application].MsCPUBusy.Add(
+                                     double.Parse(record.MsCPUBusy));
+                            }
 
-                        if (record.MsInPresentAPI != "NA") {
-                            presentmonData[record.Application].MsInPresentAPI.Add(
-                                 double.Parse(record.MsInPresentAPI));
-                        }
+                            if (record.MsCPUWait != "NA") {
+                                presentmonData[record.Application].MsCPUWait.Add(
+                                     double.Parse(record.MsCPUWait));
+                            }
 
-                        if (record.MsGPULatency != "NA") {
-                            presentmonData[record.Application].MsGPULatency.Add(
-                                 double.Parse(record.MsGPULatency));
-                        }
+                            if (record.MsInPresentAPI != "NA") {
+                                presentmonData[record.Application].MsInPresentAPI.Add(
+                                     double.Parse(record.MsInPresentAPI));
+                            }
 
-                        if (record.MsGPUTime != "NA") {
-                            presentmonData[record.Application].MsGPUTime.Add(
-                                 double.Parse(record.MsGPUTime));
-                        }
+                            if (record.MsGPULatency != "NA") {
+                                presentmonData[record.Application].MsGPULatency.Add(
+                                     double.Parse(record.MsGPULatency));
+                            }
 
-                        if (record.MsGPUBusy != "NA") {
-                            presentmonData[record.Application].MsGPUBusy.Add(
-                                 double.Parse(record.MsGPUBusy));
-                        }
+                            if (record.MsGPUTime != "NA") {
+                                presentmonData[record.Application].MsGPUTime.Add(
+                                     double.Parse(record.MsGPUTime));
+                            }
 
-                        if (record.MsUntilDisplayed != "NA") {
-                            presentmonData[record.Application].MsUntilDisplayed.Add(
-                                 double.Parse(record.MsUntilDisplayed));
-                        }
+                            if (record.MsGPUBusy != "NA") {
+                                presentmonData[record.Application].MsGPUBusy.Add(
+                                     double.Parse(record.MsGPUBusy));
+                            }
 
-                        if (record.MsGPUTime != "NA") {
-                            presentmonData[record.Application].MsGPUTime.Add(
-                                 double.Parse(record.MsGPUTime));
-                        }
+                            if (record.MsUntilDisplayed != "NA") {
+                                presentmonData[record.Application].MsUntilDisplayed.Add(
+                                     double.Parse(record.MsUntilDisplayed));
+                            }
 
-                        if (record.MsBetweenDisplayChange != "NA") {
-                            presentmonData[record.Application].MsBetweenDisplayChange.Add(
-                                 double.Parse(record.MsBetweenDisplayChange));
-                        }
+                            if (record.MsGPUTime != "NA") {
+                                presentmonData[record.Application].MsGPUTime.Add(
+                                     double.Parse(record.MsGPUTime));
+                            }
 
-                        if (record.MsAnimationError != "NA") {
-                            presentmonData[record.Application].MsAnimationError.Add(
-                                 double.Parse(record.MsAnimationError));
-                        }
+                            if (record.MsBetweenDisplayChange != "NA") {
+                                presentmonData[record.Application].MsBetweenDisplayChange.Add(
+                                     double.Parse(record.MsBetweenDisplayChange));
+                            }
 
-                        if (record.MsAllInputToPhotonLatency != "NA") {
-                            presentmonData[record.Application].MsAllInputToPhotonLatency.Add(
-                                double.Parse(record.MsAllInputToPhotonLatency));
-                        }
+                            if (record.MsAnimationError != "NA") {
+                                presentmonData[record.Application].MsAnimationError.Add(
+                                     double.Parse(record.MsAnimationError));
+                            }
 
-                        if (record.MsClickToPhotonLatency != "NA") {
-                            presentmonData[record.Application].MsClickToPhotonLatency.Add(
-                                double.Parse(record.MsClickToPhotonLatency));
+                            if (record.MsAllInputToPhotonLatency != "NA") {
+                                presentmonData[record.Application].MsAllInputToPhotonLatency.Add(
+                                    double.Parse(record.MsAllInputToPhotonLatency));
+                            }
+
+                            if (record.MsClickToPhotonLatency != "NA") {
+                                presentmonData[record.Application].MsClickToPhotonLatency.Add(
+                                    double.Parse(record.MsClickToPhotonLatency));
+                            }
                         }
                     }
                 }
-            }
 
-            foreach (var processName in presentmonData.Keys) {
-                reportLines.Add(GetTitle($"PresentMon - {processName}") + "\n\n");
+                foreach (var processName in presentmonData.Keys) {
+                    reportLines.Add(GetTitle($"PresentMon - {processName}") + "\n\n");
 
-                var processData = presentmonData[processName];
+                    var processData = presentmonData[processName];
 
-                reportLines.Add(
-                    $"    Present Runtime: {string.Join(", ", processData.PresentRuntime),-10}" +
-                    $"Sync Interval: {string.Join(",", processData.SyncInterval),-10}" +
-                    $"Present Flags: {string.Join(",", processData.PresentFlags),-10}" +
-                    $"Allows Tearing: {string.Join(",", processData.AllowsTearing),-10}" +
-                    $"Present Mode: {string.Join(", ", processData.PresentMode)}" +
-                    $"\n"
-                );
+                    reportLines.Add(
+                        $"    Present Runtime: {string.Join(", ", processData.PresentRuntime),-10}" +
+                        $"Sync Interval: {string.Join(",", processData.SyncInterval),-10}" +
+                        $"Present Flags: {string.Join(",", processData.PresentFlags),-10}" +
+                        $"Allows Tearing: {string.Join(",", processData.AllowsTearing),-10}" +
+                        $"Present Mode: {string.Join(", ", processData.PresentMode)}" +
+                        $"\n"
+                    );
 
-                // space before metric table
-                reportLines.Add("\n");
+                    // space before metric table
+                    reportLines.Add("\n");
 
-                var processRightPadding = 30;
+                    var processRightPadding = 30;
 
-                reportLines.Add($"    {"Metric".PadRight(processRightPadding)}");
-                for (var i = 0; i < metricsTableHeadings.Length; i++) {
-                    // don't add padding to last column
-                    var rightPadding = i != metricsTableHeadings.Length - 1 ? METRICS_RIGHT_PADDING : 0;
-                    reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
+                    reportLines.Add($"    {"Metric".PadRight(processRightPadding)}");
+                    for (var i = 0; i < metricsTableHeadings.Length; i++) {
+                        // don't add padding to last column
+                        var rightPadding = i != metricsTableHeadings.Length - 1 ? METRICS_RIGHT_PADDING : 0;
+                        reportLines.Add(metricsTableHeadings[i].PadRight(rightPadding));
+                    }
+                    reportLines.Add("\n");
+
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsBetweenSimulationStart, processData.MsBetweenSimulationStart.Sum),
+                        "MsBetweenSimulationStart",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsRenderPresentLatency, processData.MsRenderPresentLatency.Sum),
+                        "RenderPresentLatency",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsBetweenPresents, processData.MsBetweenPresents.Sum),
+                        "MsBetweenPresents",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add("\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsBetweenAppStart, processData.MsBetweenAppStart.Sum),
+                        "Frame Time",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsCPUBusy, processData.MsCPUBusy.Sum),
+                        "CPU Busy",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsCPUWait, processData.MsCPUWait.Sum),
+                        "CPU Wait",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsInPresentAPI, processData.MsInPresentAPI.Sum),
+                        "MsInPresentAPI",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add("\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsGPULatency, processData.MsGPULatency.Sum),
+                        "GPU Latency",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsGPUTime, processData.MsGPUTime.Sum),
+                        "GPU Time",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsGPUBusy, processData.MsGPUBusy.Sum),
+                        "GPU Busy",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsGPUWait, processData.MsGPUWait.Sum),
+                        "GPU Wait",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add("\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsUntilDisplayed, processData.MsUntilDisplayed.Sum),
+                        "MsUntilDisplayed",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsBetweenDisplayChange, processData.MsBetweenDisplayChange.Sum),
+                        "Displayed Time",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsAnimationError, processData.MsAnimationError.Sum),
+                        "Animation Error",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add("\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsAllInputToPhotonLatency, processData.MsAllInputToPhotonLatency.Sum),
+                        "Input To Photon Latency",
+                        processRightPadding
+                        ) + "\n");
+
+                    reportLines.Add(GetComputedMetrics(
+                        new ComputeMetrics(processData.MsClickToPhotonLatency, processData.MsClickToPhotonLatency.Sum),
+                        "Click To Photon Latency",
+                        processRightPadding
+                        ) + "\n");
                 }
-                reportLines.Add("\n");
 
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsBetweenSimulationStart, processData.MsBetweenSimulationStart.Sum),
-                    "MsBetweenSimulationStart",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsRenderPresentLatency, processData.MsRenderPresentLatency.Sum),
-                    "RenderPresentLatency",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsBetweenPresents, processData.MsBetweenPresents.Sum),
-                    "MsBetweenPresents",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add("\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsBetweenAppStart, processData.MsBetweenAppStart.Sum),
-                    "Frame Time",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsCPUBusy, processData.MsCPUBusy.Sum),
-                    "CPU Busy",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsCPUWait, processData.MsCPUWait.Sum),
-                    "CPU Wait",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsInPresentAPI, processData.MsInPresentAPI.Sum),
-                    "MsInPresentAPI",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add("\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsGPULatency, processData.MsGPULatency.Sum),
-                    "GPU Latency",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsGPUTime, processData.MsGPUTime.Sum),
-                    "GPU Time",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsGPUBusy, processData.MsGPUBusy.Sum),
-                    "GPU Busy",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsGPUWait, processData.MsGPUWait.Sum),
-                    "GPU Wait",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add("\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsUntilDisplayed, processData.MsUntilDisplayed.Sum),
-                    "MsUntilDisplayed",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsBetweenDisplayChange, processData.MsBetweenDisplayChange.Sum),
-                    "Displayed Time",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsAnimationError, processData.MsAnimationError.Sum),
-                    "Animation Error",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add("\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsAllInputToPhotonLatency, processData.MsAllInputToPhotonLatency.Sum),
-                    "Input To Photon Latency",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add(GetComputedMetrics(
-                    new ComputeMetrics(processData.MsClickToPhotonLatency, processData.MsClickToPhotonLatency.Sum),
-                    "Click To Photon Latency",
-                    processRightPadding
-                    ) + "\n");
-
-                reportLines.Add("\n");
+                reportLines.Add("\n\n\n"); // space between sections
             }
 
             // write output file
