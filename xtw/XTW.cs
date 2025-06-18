@@ -225,11 +225,11 @@ namespace xtw {
             traceProcessor.Process(progressCallback);
 
             if (traceMetadata.LostEventCount > 0) {
-                log.Warning($"trace contains lost events: {traceMetadata.LostEventCount}, consider increasing buffer size");
+                log.Warning($"{traceMetadata.LostEventCount} events were lost, consider increasing buffer size");
             }
 
             if (traceMetadata.LostBufferCount > 0) {
-                log.Warning($"trace contains lost buffers: {traceMetadata.LostBufferCount}, consider increasing buffer size");
+                log.Warning($"{traceMetadata.LostBufferCount} buffers were lost, consider increasing buffer size");
             }
 
             // get result of selected events
