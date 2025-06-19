@@ -879,9 +879,9 @@ namespace xtw {
                         "Click To Photon Latency",
                         processRightPadding
                         ) + "\n");
-                }
 
-                reportLines.Add("\n\n\n"); // space between sections
+                    reportLines.Add("\n\n\n");
+                }
             }
 
             // write output file
