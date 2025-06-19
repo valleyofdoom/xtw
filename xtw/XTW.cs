@@ -754,11 +754,11 @@ namespace xtw {
                     var processData = presentmonData[processName];
 
                     reportLines.Add(
-                        $"    Present Runtime: {string.Join(", ", processData.PresentRuntime),-10}" +
-                        $"Sync Interval: {string.Join(",", processData.SyncInterval),-10}" +
-                        $"Present Flags: {string.Join(",", processData.PresentFlags),-10}" +
-                        $"Allows Tearing: {string.Join(",", processData.AllowsTearing),-10}" +
-                        $"Present Mode: {string.Join(", ", processData.PresentMode)}" +
+                        $"    Runtime: {string.Join(", ", processData.PresentRuntime),-10}" +
+                        $"SyncInterval: {string.Join(",", processData.SyncInterval),-10}" +
+                        $"PresentFlags: {string.Join(",", processData.PresentFlags),-10}" +
+                        $"AllowsTearing: {string.Join(",", processData.AllowsTearing),-10}" +
+                        $"PresentMode: {string.Join(", ", processData.PresentMode)}" +
                         $"\n"
                     );
 
