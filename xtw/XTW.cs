@@ -663,7 +663,7 @@ namespace xtw {
                                      int.Parse(record.AllowsTearing));
                             }
 
-                            presentmonData[record.Application].PresentMode.Add(record.PresentMode);
+                            presentmonData[record.Application].PresentMode.Add(record.PresentMode.Replace("Hardware:", "HW:"));
 
                             if (record.MsBetweenSimulationStart != "NA") {
                                 presentmonData[record.Application].MsBetweenSimulationStart.Add(
