@@ -715,14 +715,14 @@ namespace xtw {
                                      double.Parse(record.MsGPUBusy));
                             }
 
+                            if (record.MsGPUWait != "NA") {
+                                presentmonData[record.Application].MsGPUWait.Add(
+                                     double.Parse(record.MsGPUWait));
+                            }
+
                             if (record.MsUntilDisplayed != "NA") {
                                 presentmonData[record.Application].MsUntilDisplayed.Add(
                                      double.Parse(record.MsUntilDisplayed));
-                            }
-
-                            if (record.MsGPUTime != "NA") {
-                                presentmonData[record.Application].MsGPUTime.Add(
-                                     double.Parse(record.MsGPUTime));
                             }
 
                             if (record.MsBetweenDisplayChange != "NA") {
