@@ -667,82 +667,82 @@ namespace xtw {
 
                             if (record.MsBetweenSimulationStart != "NA") {
                                 presentmonData[record.Application].MsBetweenSimulationStart.Add(
-                                     double.Parse(record.MsBetweenSimulationStart));
+                                     double.Parse(record.MsBetweenSimulationStart, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsRenderPresentLatency != "NA") {
                                 presentmonData[record.Application].MsRenderPresentLatency.Add(
-                                     double.Parse(record.MsRenderPresentLatency));
+                                     double.Parse(record.MsRenderPresentLatency, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsBetweenPresents != "NA") {
                                 presentmonData[record.Application].MsBetweenPresents.Add(
-                                     double.Parse(record.MsBetweenPresents));
+                                     double.Parse(record.MsBetweenPresents, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsBetweenAppStart != "NA") {
                                 presentmonData[record.Application].MsBetweenAppStart.Add(
-                                     double.Parse(record.MsBetweenAppStart));
+                                     double.Parse(record.MsBetweenAppStart, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsCPUBusy != "NA") {
                                 presentmonData[record.Application].MsCPUBusy.Add(
-                                     double.Parse(record.MsCPUBusy));
+                                     double.Parse(record.MsCPUBusy, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsCPUWait != "NA") {
                                 presentmonData[record.Application].MsCPUWait.Add(
-                                     double.Parse(record.MsCPUWait));
+                                     double.Parse(record.MsCPUWait, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsInPresentAPI != "NA") {
                                 presentmonData[record.Application].MsInPresentAPI.Add(
-                                     double.Parse(record.MsInPresentAPI));
+                                     double.Parse(record.MsInPresentAPI, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsGPULatency != "NA") {
                                 presentmonData[record.Application].MsGPULatency.Add(
-                                     double.Parse(record.MsGPULatency));
+                                     double.Parse(record.MsGPULatency, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsGPUTime != "NA") {
                                 presentmonData[record.Application].MsGPUTime.Add(
-                                     double.Parse(record.MsGPUTime));
+                                     double.Parse(record.MsGPUTime, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsGPUBusy != "NA") {
                                 presentmonData[record.Application].MsGPUBusy.Add(
-                                     double.Parse(record.MsGPUBusy));
+                                     double.Parse(record.MsGPUBusy, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsGPUWait != "NA") {
                                 presentmonData[record.Application].MsGPUWait.Add(
-                                     double.Parse(record.MsGPUWait));
+                                     double.Parse(record.MsGPUWait, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsUntilDisplayed != "NA") {
                                 presentmonData[record.Application].MsUntilDisplayed.Add(
-                                     double.Parse(record.MsUntilDisplayed));
+                                     double.Parse(record.MsUntilDisplayed, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsBetweenDisplayChange != "NA") {
                                 presentmonData[record.Application].MsBetweenDisplayChange.Add(
-                                     double.Parse(record.MsBetweenDisplayChange));
+                                     double.Parse(record.MsBetweenDisplayChange, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsAnimationError != "NA") {
                                 presentmonData[record.Application].MsAnimationError.Add(
-                                     double.Parse(record.MsAnimationError));
+                                     double.Parse(record.MsAnimationError, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsAllInputToPhotonLatency != "NA") {
                                 presentmonData[record.Application].MsAllInputToPhotonLatency.Add(
-                                    double.Parse(record.MsAllInputToPhotonLatency));
+                                    double.Parse(record.MsAllInputToPhotonLatency, CultureInfo.InvariantCulture));
                             }
 
                             if (record.MsClickToPhotonLatency != "NA") {
                                 presentmonData[record.Application].MsClickToPhotonLatency.Add(
-                                    double.Parse(record.MsClickToPhotonLatency));
+                                    double.Parse(record.MsClickToPhotonLatency, CultureInfo.InvariantCulture));
                             }
                         }
                     }
