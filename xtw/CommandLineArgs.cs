@@ -18,8 +18,11 @@ namespace xtw {
         [Option("timed", HelpText = "Collect trace events for the specified duration.")]
         public int Timed { get; set; }
 
-        [Option("output-report-file", HelpText = "Path for report output file.")]
-        public string OutputReportFile { get; set; }
+        [Option("output-directory", HelpText = "Path for store the files generating during the trace.")]
+        public string OutputDirectory { get; set; }
+
+        [Option("session-name", HelpText = "Specifies a name to identify and reference the current session in the traces folder.")]
+        public string SessionName { get; set; }
 
         [Option("merge", HelpText = "Merge trace files e.g. --merge trace1.etl trace2.etl ... merged.etl")]
         public IEnumerable<string> MergeETLs { get; set; }

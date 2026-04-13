@@ -24,6 +24,7 @@ namespace xtw {
         private static Version VERSION = Assembly.GetExecutingAssembly().GetName().Version;
         private static string BRANCH = "    └───";
         private static int METRICS_RIGHT_PADDING = 20;
+        private static string DEFAULT_OUTPUT_DIRECTORY = "traces";
 
 
         private static void ShowBanner() {
@@ -109,11 +110,6 @@ namespace xtw {
                 .WriteTo.Console()
                 .CreateLogger();
 
-            if (!IsAdmin()) {
-                log.Error("administrator privileges required");
-                return 1;
-            }
-
             // parse arguments
             CommandLineArgs args = null;
 
@@ -124,6 +120,18 @@ namespace xtw {
             if (args == null) {
                 return 1;
             }
+
+            if (!args.NoBanner) {
+                ShowBanner();
+            }
+
+            if (!IsAdmin()) {
+                log.Error("administrator privileges required");
+                return 1;
+            }
+
+            // cd to directory of program
+            Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
 
             if (args.MergeETLs.Count() > 0) {
                 if (args.MergeETLs.Count() < 3) {
@@ -165,19 +173,41 @@ namespace xtw {
                 return 0;
             }
 
-            if (!args.NoBanner) {
-                ShowBanner();
+            var outputDirectory = "";
+
+            if (args.OutputDirectory != null) {
+                if (File.Exists(args.OutputDirectory)) {
+                    log.Error($"{args.OutputDirectory} is not a directory");
+                    return 1;
+                }
+
+                outputDirectory = args.OutputDirectory;
+            } else {
+                outputDirectory = DEFAULT_OUTPUT_DIRECTORY;
             }
 
-            // cd to directory of program
-            Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
+            var startDateTime = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
+            var sessionName = !string.IsNullOrEmpty(args.SessionName) ? args.SessionName : startDateTime;
+
+            // check if the session name has already been used
+            if (File.Exists(Path.Combine(outputDirectory, $"{sessionName}-trace.etl"))) {
+                log.Error($"trace with session name {sessionName} already exists");
+                return 1;
+            }
+
+            log.Information($"session name: {sessionName}");
+
+            if (!Directory.Exists(outputDirectory)) {
+                _ = Directory.CreateDirectory(outputDirectory);
+                log.Information($"{outputDirectory} created");
+            }
 
             var etlFile = "";
 
             if (args.EtlFile != null) {
                 etlFile = args.EtlFile;
             } else {
-                etlFile = "xtw.etl";
+                etlFile = Path.Combine(outputDirectory, $"{sessionName}-trace.etl");
 
                 // remove previous ETL file
                 if (File.Exists(etlFile)) {
@@ -214,7 +244,7 @@ namespace xtw {
             }
 
             // get presentmon data
-            var csvFile = "xtw.csv";
+            var csvFile = Path.Combine(outputDirectory, $"{sessionName}-presentmon.csv");
 
             // remove previous CSV file
             if (File.Exists(csvFile)) {
@@ -404,8 +434,10 @@ namespace xtw {
             reportLines.Add(GetTitle($"XTW Version {VERSION.Major}.{VERSION.Minor}.{VERSION.Build}") + "\n");
 
             var traceSeconds = (traceMetadata.StopTime - traceMetadata.StartTime).Seconds;
+            reportLines.Add($"Session Name: {sessionName}\n");
             reportLines.Add($"OS Version: {traceMetadata.OSVersion}\n");
-            reportLines.Add($"Trace duration: {traceSeconds} second(s)\n");
+            reportLines.Add($"Start Time: {startDateTime}\n");
+            reportLines.Add($"Trace Duration: {traceSeconds} second(s)\n");
             reportLines.Add($"Trace Path: {traceMetadata.TracePath}\n");
             reportLines.Add($"Lost Buffers: {traceMetadata.LostBufferCount}\n");
             reportLines.Add($"Lost Events: {traceMetadata.LostEventCount}\n");
@@ -884,16 +916,15 @@ namespace xtw {
                 }
             }
 
-            // write output file
-            var outputFile = args.OutputReportFile ?? "xtw-report.txt";
+            var reportPath = Path.Combine(outputDirectory, $"{sessionName}-xtw-report.txt");
 
-            using (var writer = new StreamWriter(outputFile)) {
+            using (var writer = new StreamWriter(reportPath)) {
                 for (var i = 0; i < reportLines.Count; i++) {
                     writer.Write($"{reportLines[i]}");
                 }
             }
 
-            log.Information($"report saved in {outputFile}");
+            log.Information($"report saved in {outputDirectory}");
 
             Console.WriteLine();
 
