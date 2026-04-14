@@ -25,5 +25,5 @@ The simplest method of getting started is to run the ``xtw_etl_collection.bat``.
 |``--delay <seconds>``|Delay trace log collection for the specified duration|
 |``--timed <seconds>``|Collect events for the specified duration and stop automatically|
 |``--output-directory <path>``|Path for store the files generating during the trace.|
-|``--session-name <path>``|Specifies a name to identify and reference the current session in the traces folder.|
+|``--session-name <name>``|Specifies a name to identify and reference the current session in the traces folder.|
 |``--merge <trace1> <trace2> ... <merged_trace>``|Merge 2 or more traces. E.g. ``--merge trace1.etl trace2.etl merged.etl``|
