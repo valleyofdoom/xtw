@@ -918,13 +918,24 @@ namespace xtw {
 
             var reportPath = Path.Combine(outputDirectory, $"{sessionName}-xtw-report.txt");
 
+            log.Information($"report path: {reportPath}");
+
             using (var writer = new StreamWriter(reportPath)) {
                 for (var i = 0; i < reportLines.Count; i++) {
                     writer.Write($"{reportLines[i]}");
                 }
             }
 
-            log.Information($"report saved in {outputDirectory}");
+            log.Information($"report saved");
+
+            if (args.OpenReport) {
+                log.Information($"opening report");
+
+                _ = Process.Start(new ProcessStartInfo {
+                    FileName = reportPath,
+                    UseShellExecute = true
+                });
+            }
 
             Console.WriteLine();
 

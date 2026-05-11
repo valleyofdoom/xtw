@@ -26,5 +26,8 @@ namespace xtw {
 
         [Option("merge", HelpText = "Merge trace files e.g. --merge trace1.etl trace2.etl ... merged.etl")]
         public IEnumerable<string> MergeETLs { get; set; }
+
+        [Option("open-report", HelpText = "Open the generated report in the system's default text editor.")]
+        public bool OpenReport { get; set; }
     }
 }
